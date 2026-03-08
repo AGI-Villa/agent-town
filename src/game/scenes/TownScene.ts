@@ -4,7 +4,7 @@ import { TOWN_MAP, TownArea } from '../maps/town-map';
 import { PICO8_COLORS } from '../tiles/palette';
 import { AgentSprite } from '../sprites';
 import { PathfindingManager, AgentMovementController } from '../pathfinding';
-import { DayNightCycle, TimeOfDay, GameTimeSystem, TimeSpeed, ScheduleSystem } from '../systems';
+import { DayNightCycle, TimeOfDay, GameTimeSystem, TimeSpeed, ScheduleSystem, EnvironmentSystem, WeatherType, HolidayType } from '../systems';
 import type { AgentStatus as ApiAgentStatus } from '@/lib/types';
 
 // Event callbacks for React integration
@@ -39,6 +39,7 @@ export class TownScene extends Phaser.Scene {
   private dayNightCycle!: DayNightCycle;
   private gameTime!: GameTimeSystem;
   private scheduleSystem!: ScheduleSystem;
+  private environmentSystem!: EnvironmentSystem;
   private currentArea: TownArea = 'office';
   private timeText!: Phaser.GameObjects.Text;
   private speedText!: Phaser.GameObjects.Text;
@@ -78,6 +79,10 @@ export class TownScene extends Phaser.Scene {
 
     // Set up schedule system
     this.scheduleSystem = new ScheduleSystem(this, this.gameTime, this.pathfinder);
+
+    // Set up environment system (weather & holidays)
+    this.environmentSystem = new EnvironmentSystem(this, mapWidth, mapHeight);
+    this.environmentSystem.create();
 
     // Set up day/night cycle synced with game time
     this.dayNightCycle = new DayNightCycle(this, {
@@ -614,6 +619,7 @@ export class TownScene extends Phaser.Scene {
     this.gameTime.update();
     this.dayNightCycle.update();
     this.scheduleSystem.update();
+    this.environmentSystem.update();
     this.timeText.setText(this.gameTime.getTimeString());
     this.agents.forEach(agent => agent.updateDepth());
   }
@@ -626,5 +632,23 @@ export class TownScene extends Phaser.Scene {
     this.gameTime.destroy();
     this.dayNightCycle.destroy();
     this.scheduleSystem.destroy();
+    this.environmentSystem.destroy();
+  }
+
+  // Environment control methods
+  setWeather(weather: WeatherType): void {
+    this.environmentSystem.setWeather(weather);
+  }
+
+  setHoliday(holiday: HolidayType): void {
+    this.environmentSystem.setHoliday(holiday);
+  }
+
+  getWeather(): WeatherType {
+    return this.environmentSystem.getWeather();
+  }
+
+  getHoliday(): HolidayType {
+    return this.environmentSystem.getHoliday();
   }
 }
