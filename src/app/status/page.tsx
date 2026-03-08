@@ -1,4 +1,5 @@
 import { StatusGrid } from "@/components/status/StatusGrid";
+import { WatcherControl } from "@/components/status/WatcherControl";
 
 export const metadata = {
   title: "Status Panel | Agent Town",
@@ -50,6 +51,7 @@ export default function StatusPage() {
 
       {/* Content */}
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-8">
+        <WatcherControl />
         <StatusGrid />
       </div>
     </main>
