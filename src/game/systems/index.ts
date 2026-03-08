@@ -4,3 +4,4 @@ export { ScheduleSystem } from './ScheduleSystem';
 export { SocialInteractionSystem, type SocialInteractionConfig } from './SocialInteractionSystem';
 export { PerformanceManager, type PerformanceConfig } from './PerformanceManager';
 export { TouchInputManager, type TouchInputConfig } from './TouchInputManager';
+export { EnvironmentSystem, type WeatherType, type HolidayType, type EnvironmentConfig } from './EnvironmentSystem';
