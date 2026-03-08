@@ -4,26 +4,30 @@ import { TOWN_MAP, TownArea } from '../maps/town-map';
 import { PICO8_COLORS } from '../tiles/palette';
 import { AgentSprite } from '../sprites';
 import { PathfindingManager, AgentMovementController } from '../pathfinding';
-import { DayNightCycle, TimeOfDay } from '../systems';
+import { DayNightCycle, TimeOfDay, GameTimeSystem, TimeSpeed, ScheduleSystem } from '../systems';
 import type { AgentStatus as ApiAgentStatus } from '@/lib/types';
 
 // Event callbacks for React integration
 type AgentClickCallback = (agentId: string) => void;
 type AreaChangeCallback = (area: TownArea) => void;
 type ViewportChangeCallback = (x: number, y: number, w: number, h: number) => void;
+type TimeChangeCallback = (hour: number, minute: number, speed: TimeSpeed) => void;
 
 let agentClickCallback: AgentClickCallback | null = null;
 let areaChangeCallback: AreaChangeCallback | null = null;
 let viewportChangeCallback: ViewportChangeCallback | null = null;
+let timeChangeCallback: TimeChangeCallback | null = null;
 
 export function setTownCallbacks(callbacks: {
   onAgentClick?: AgentClickCallback | null;
   onAreaChange?: AreaChangeCallback | null;
   onViewportChange?: ViewportChangeCallback | null;
+  onTimeChange?: TimeChangeCallback | null;
 }): void {
   agentClickCallback = callbacks.onAgentClick ?? null;
   areaChangeCallback = callbacks.onAreaChange ?? null;
   viewportChangeCallback = callbacks.onViewportChange ?? null;
+  timeChangeCallback = callbacks.onTimeChange ?? null;
 }
 
 export class TownScene extends Phaser.Scene {
@@ -33,8 +37,11 @@ export class TownScene extends Phaser.Scene {
   private pathfinder!: PathfindingManager;
   private movementControllers: Map<string, AgentMovementController> = new Map();
   private dayNightCycle!: DayNightCycle;
+  private gameTime!: GameTimeSystem;
+  private scheduleSystem!: ScheduleSystem;
   private currentArea: TownArea = 'office';
   private timeText!: Phaser.GameObjects.Text;
+  private speedText!: Phaser.GameObjects.Text;
   private isDragging = false;
   private dragStartX = 0;
   private dragStartY = 0;
@@ -61,7 +68,18 @@ export class TownScene extends Phaser.Scene {
     this.renderGroundLayer(layers.ground);
     this.renderFurnitureLayer(layers.furniture);
 
-    // Set up day/night cycle (2 minute full cycle for demo)
+    // Set up game time system (start at 9:00 AM)
+    this.gameTime = new GameTimeSystem(this, {
+      startHour: 9,
+      startMinute: 0,
+      speed: 1,
+    });
+    this.gameTime.start();
+
+    // Set up schedule system
+    this.scheduleSystem = new ScheduleSystem(this, this.gameTime, this.pathfinder);
+
+    // Set up day/night cycle synced with game time
     this.dayNightCycle = new DayNightCycle(this, {
       cycleDurationMs: 120000,
       startTime: 'day',
@@ -69,14 +87,39 @@ export class TownScene extends Phaser.Scene {
     this.dayNightCycle.create(mapWidth, mapHeight);
     this.dayNightCycle.start();
 
+    // Sync day/night with game time
+    this.gameTime.onTimeChange((hour) => {
+      if (hour >= 6 && hour < 8) {
+        this.dayNightCycle.setTime('dawn');
+      } else if (hour >= 8 && hour < 18) {
+        this.dayNightCycle.setTime('day');
+      } else if (hour >= 18 && hour < 20) {
+        this.dayNightCycle.setTime('dusk');
+      } else {
+        this.dayNightCycle.setTime('night');
+      }
+      this.notifyTimeChange();
+    });
+
     // Time display
-    this.timeText = this.add.text(mapWidth - 80, 16, '12:00', {
+    this.timeText = this.add.text(mapWidth - 80, 16, '09:00', {
       fontSize: '12px',
       color: '#ffffff',
       fontFamily: 'monospace',
       backgroundColor: '#1d2b53',
       padding: { x: 4, y: 2 },
     }).setDepth(101).setScrollFactor(0);
+
+    // Speed display
+    this.speedText = this.add.text(mapWidth - 80, 36, '1x', {
+      fontSize: '10px',
+      color: '#ffcc00',
+      fontFamily: 'monospace',
+      backgroundColor: '#1d2b53',
+      padding: { x: 4, y: 2 },
+    }).setDepth(101).setScrollFactor(0);
+    this.speedText.setInteractive({ useHandCursor: true });
+    this.speedText.on('pointerdown', () => this.cycleSpeed());
 
     // Title
     this.add.text(16, 16, 'Agent Town', {
@@ -116,18 +159,51 @@ export class TownScene extends Phaser.Scene {
       this.isDragging = false;
     });
 
-    // Keyboard controls
+    // Keyboard controls for areas
     this.input.keyboard?.on('keydown-ONE', () => this.navigateToArea('office'));
     this.input.keyboard?.on('keydown-TWO', () => this.navigateToArea('park'));
     this.input.keyboard?.on('keydown-THREE', () => this.navigateToArea('residential'));
     this.input.keyboard?.on('keydown-FOUR', () => this.navigateToArea('coffeeShop'));
     this.input.keyboard?.on('keydown-FIVE', () => this.navigateToArea('store'));
 
+    // Keyboard controls for time speed
+    this.input.keyboard?.on('keydown-COMMA', () => this.setTimeSpeed(1));
+    this.input.keyboard?.on('keydown-PERIOD', () => this.setTimeSpeed(10));
+    this.input.keyboard?.on('keydown-FORWARD_SLASH', () => this.setTimeSpeed(60));
+
     // Start polling for agents
     this.startPolling();
 
     // Start at office
     this.navigateToArea('office');
+  }
+
+  private cycleSpeed(): void {
+    const current = this.gameTime.getSpeed();
+    const speeds: TimeSpeed[] = [1, 10, 60];
+    const idx = speeds.indexOf(current);
+    const next = speeds[(idx + 1) % speeds.length];
+    this.setTimeSpeed(next);
+  }
+
+  setTimeSpeed(speed: TimeSpeed): void {
+    this.gameTime.setSpeed(speed);
+    this.speedText.setText(`${speed}x`);
+    this.notifyTimeChange();
+  }
+
+  getTimeSpeed(): TimeSpeed {
+    return this.gameTime.getSpeed();
+  }
+
+  private notifyTimeChange(): void {
+    if (timeChangeCallback) {
+      timeChangeCallback(
+        this.gameTime.getHour(),
+        this.gameTime.getMinute(),
+        this.gameTime.getSpeed()
+      );
+    }
   }
 
   private async startPolling(): Promise<void> {
@@ -465,6 +541,10 @@ export class TownScene extends Phaser.Scene {
     
     this.movementControllers.set(agentData.agent_id, controller);
     this.agents.set(agentData.agent_id, agent);
+    
+    // Register with schedule system
+    this.scheduleSystem.registerAgent(agentData.agent_id, agent, controller);
+    
     this.applyAgentStatus(agent, agentData.status);
   }
 
@@ -502,6 +582,7 @@ export class TownScene extends Phaser.Scene {
       agent.destroy();
       this.agents.delete(agentId);
     }
+    this.scheduleSystem.unregisterAgent(agentId);
     this.movementControllers.delete(agentId);
     this.agentData.delete(agentId);
   }
@@ -514,9 +595,26 @@ export class TownScene extends Phaser.Scene {
     return this.dayNightCycle.getCurrentTime();
   }
 
+  getGameTime(): { hour: number; minute: number } {
+    return {
+      hour: this.gameTime.getHour(),
+      minute: this.gameTime.getMinute(),
+    };
+  }
+
+  getGameTimeString(): string {
+    return this.gameTime.getTimeString();
+  }
+
+  setGameTime(hour: number, minute: number = 0): void {
+    this.gameTime.setTime(hour, minute);
+  }
+
   update(): void {
+    this.gameTime.update();
     this.dayNightCycle.update();
-    this.timeText.setText(this.dayNightCycle.getTimeString());
+    this.scheduleSystem.update();
+    this.timeText.setText(this.gameTime.getTimeString());
     this.agents.forEach(agent => agent.updateDepth());
   }
 
@@ -525,6 +623,8 @@ export class TownScene extends Phaser.Scene {
       clearInterval(this.pollTimer);
       this.pollTimer = null;
     }
+    this.gameTime.destroy();
     this.dayNightCycle.destroy();
+    this.scheduleSystem.destroy();
   }
 }

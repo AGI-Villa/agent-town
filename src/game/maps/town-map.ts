@@ -43,13 +43,28 @@ export const TOWN_MAP = {
     parkBench1: { x: 25, y: 5, area: 'park' },
     parkBench2: { x: 32, y: 8, area: 'park' },
     fountain: { x: 28, y: 7, area: 'park' },
+    parkBenches: [
+      { x: 25, y: 5, id: 'bench-1', area: 'park' },
+      { x: 32, y: 8, id: 'bench-2', area: 'park' },
+      { x: 28, y: 10, id: 'bench-3', area: 'park' },
+    ],
     // Residential area
     house1: { x: 3, y: 18, area: 'residential' },
     house2: { x: 10, y: 18, area: 'residential' },
     house3: { x: 3, y: 24, area: 'residential' },
+    homes: [
+      { x: 2, y: 17, id: 'home-1', area: 'residential' },
+      { x: 9, y: 17, id: 'home-2', area: 'residential' },
+      { x: 2, y: 23, id: 'home-3', area: 'residential' },
+    ],
     // Coffee shop
     coffeeCounter: { x: 24, y: 20, area: 'coffeeShop' },
     coffeeSeating: { x: 22, y: 24, area: 'coffeeShop' },
+    cafeTables: [
+      { x: 22, y: 24, id: 'cafe-1', area: 'coffeeShop' },
+      { x: 26, y: 24, id: 'cafe-2', area: 'coffeeShop' },
+      { x: 24, y: 27, id: 'cafe-3', area: 'coffeeShop' },
+    ],
     // Store
     storeCounter: { x: 34, y: 20, area: 'store' },
   },
