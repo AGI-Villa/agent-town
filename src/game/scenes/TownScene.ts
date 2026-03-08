@@ -4,7 +4,7 @@ import { TOWN_MAP, TownArea } from '../maps/town-map';
 import { PICO8_COLORS } from '../tiles/palette';
 import { AgentSprite } from '../sprites';
 import { PathfindingManager, AgentMovementController } from '../pathfinding';
-import { DayNightCycle, TimeOfDay, GameTimeSystem, TimeSpeed, ScheduleSystem, SocialInteractionSystem } from '../systems';
+import { DayNightCycle, TimeOfDay, GameTimeSystem, TimeSpeed, ScheduleSystem, SocialInteractionSystem, PerformanceManager, TouchInputManager } from '../systems';
 import type { AgentStatus as ApiAgentStatus } from '@/lib/types';
 
 // Event callbacks for React integration
@@ -40,6 +40,8 @@ export class TownScene extends Phaser.Scene {
   private gameTime!: GameTimeSystem;
   private scheduleSystem!: ScheduleSystem;
   private socialSystem!: SocialInteractionSystem;
+  private performanceManager!: PerformanceManager;
+  private touchInput!: TouchInputManager;
   private currentArea: TownArea = 'office';
   private timeText!: Phaser.GameObjects.Text;
   private speedText!: Phaser.GameObjects.Text;
@@ -83,6 +85,13 @@ export class TownScene extends Phaser.Scene {
     // Set up social interaction system
     this.socialSystem = new SocialInteractionSystem(this);
     this.socialSystem.start();
+
+    // Set up performance manager
+    this.performanceManager = new PerformanceManager(this);
+
+    // Set up touch input for mobile
+    this.touchInput = new TouchInputManager(this);
+    this.touchInput.create();
 
     // Set up day/night cycle synced with game time
     this.dayNightCycle = new DayNightCycle(this, {
@@ -553,6 +562,9 @@ export class TownScene extends Phaser.Scene {
     // Register with social interaction system
     this.socialSystem.registerAgent(agentData.agent_id, agent);
     
+    // Register with performance manager
+    this.performanceManager.registerAgent(agentData.agent_id, agent);
+    
     this.applyAgentStatus(agent, agentData.status);
   }
 
@@ -592,6 +604,7 @@ export class TownScene extends Phaser.Scene {
     }
     this.scheduleSystem.unregisterAgent(agentId);
     this.socialSystem.unregisterAgent(agentId);
+    this.performanceManager.unregisterAgent(agentId);
     this.movementControllers.delete(agentId);
     this.agentData.delete(agentId);
   }
@@ -624,6 +637,7 @@ export class TownScene extends Phaser.Scene {
     this.dayNightCycle.update();
     this.scheduleSystem.update();
     this.socialSystem.update();
+    this.performanceManager.update();
     this.timeText.setText(this.gameTime.getTimeString());
     this.agents.forEach(agent => agent.updateDepth());
   }
@@ -637,5 +651,21 @@ export class TownScene extends Phaser.Scene {
     this.dayNightCycle.destroy();
     this.scheduleSystem.destroy();
     this.socialSystem.destroy();
+    this.performanceManager.destroy();
+    this.touchInput.destroy();
+  }
+
+  // Performance stats
+  getPerformanceStats(): { total: number; visible: number; lowDetail: number; frameSkip: number } {
+    return this.performanceManager.getStats();
+  }
+
+  // Zoom control
+  setZoom(zoom: number): void {
+    this.touchInput.setZoom(zoom);
+  }
+
+  getZoom(): number {
+    return this.touchInput.getZoom();
   }
 }
