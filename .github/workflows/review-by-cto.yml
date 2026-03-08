@@ -1,0 +1,47 @@
+name: CTO Code Review
+on:
+  pull_request:
+    types: [review_requested, synchronize]
+jobs:
+  review:
+    # review_requested: 直接判断 requested_reviewer
+    # synchronize: 判断 darrencto 是否已在 reviewers 列表（分支更新后重新通知）
+    if: |
+      (github.event_name == 'pull_request' && github.event.action == 'review_requested' && github.event.requested_reviewer.login == 'darrencto') ||
+      (github.event_name == 'pull_request' && github.event.action == 'synchronize' && contains(toJson(github.event.pull_request.requested_reviewers), 'darrencto'))
+    runs-on: self-hosted
+    steps:
+      - name: Notify CTO Agent via Discord Inbox
+        env:
+          DISCORD_DEFAULT_BOT_TOKEN: ${{ secrets.DISCORD_DEFAULT_BOT_TOKEN }}
+          DISCORD_CTO_INBOX_CHANNEL_ID: ${{ secrets.DISCORD_CTO_INBOX_CHANNEL_ID }}
+          DISCORD_REVIEW_CHANNEL_ID: ${{ secrets.DISCORD_REVIEW_CHANNEL_ID }}
+          DISCORD_CTO_BOT_ID: "1477672017254940944"
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          REPO: ${{ github.repository }}
+        run: |
+          CHANNEL_ID="${DISCORD_CTO_INBOX_CHANNEL_ID:-$DISCORD_REVIEW_CHANNEL_ID}"
+          if [ -z "$CHANNEL_ID" ]; then
+            echo "DISCORD_CTO_INBOX_CHANNEL_ID / DISCORD_REVIEW_CHANNEL_ID 都未配置"
+            exit 1
+          fi
+
+          CONTENT="<@${DISCORD_CTO_BOT_ID}> [cursor-review] PR #${PR_NUMBER}
+
+          仓库: ${REPO}
+          标题: ${PR_TITLE}
+          分支: ${PR_BRANCH}
+          链接: ${PR_URL}
+
+          请按 cursor-review skill 执行审查，并使用 darrencto 身份执行 review/merge。"
+
+          export CONTENT
+          PAYLOAD=$(python3 -c "import json,os; print(json.dumps({'content': os.environ['CONTENT']}, ensure_ascii=False))")
+          curl -fsS -X POST \
+            -H "Authorization: Bot ${DISCORD_DEFAULT_BOT_TOKEN}" \
+            -H "Content-Type: application/json" \
+            "https://discord.com/api/v10/channels/${CHANNEL_ID}/messages" \
+            -d "$PAYLOAD"
