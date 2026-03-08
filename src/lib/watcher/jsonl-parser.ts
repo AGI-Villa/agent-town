@@ -15,12 +15,26 @@ export interface ParsedEvent {
 }
 
 /**
+ * Extract agent_id from a JSONL file path.
+ * Expected format: ~/.openclaw/agents/{agentId}/sessions/{sessionId}.jsonl
+ * Returns null if the path doesn't match.
+ */
+export function extractAgentIdFromPath(filePath: string): string | null {
+  const match = filePath.match(/\/agents\/([^/]+)\/sessions\//);
+  return match ? match[1] : null;
+}
+
+/**
  * Parse JSONL content string into an array of ParsedEvent objects.
  * Skips blank lines and logs malformed lines without throwing.
+ *
+ * @param content - raw JSONL string
+ * @param filePath - optional source file path; agent_id is extracted from it
  */
-export function parseJsonlContent(content: string): ParsedEvent[] {
+export function parseJsonlContent(content: string, filePath?: string): ParsedEvent[] {
   const events: ParsedEvent[] = [];
   const lines = content.split("\n");
+  const pathAgentId = filePath ? extractAgentIdFromPath(filePath) : null;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -30,7 +44,7 @@ export function parseJsonlContent(content: string): ParsedEvent[] {
       const obj = JSON.parse(line);
 
       const event: ParsedEvent = {
-        agent_id: obj.agent_id ?? obj.agentId ?? "unknown",
+        agent_id: pathAgentId ?? obj.agent_id ?? obj.agentId ?? "unknown",
         event_type: obj.event_type ?? obj.eventType ?? obj.type ?? "unknown",
         payload: obj,
         created_at: obj.created_at ?? obj.timestamp ?? undefined,
@@ -61,7 +75,7 @@ export async function readJsonlFile(
     }
 
     const newContent = buffer.subarray(fromOffset).toString("utf-8");
-    const events = parseJsonlContent(newContent);
+    const events = parseJsonlContent(newContent, filePath);
 
     return { events, newOffset: totalSize };
   } catch (err) {
