@@ -31,6 +31,7 @@ export interface Database {
           payload?: Json | null;
           created_at?: string;
         };
+        Relationships: [];
       };
       moments: {
         Row: {
@@ -60,6 +61,7 @@ export interface Database {
           likes?: number;
           created_at?: string;
         };
+        Relationships: [];
       };
       comments: {
         Row: {
@@ -86,7 +88,12 @@ export interface Database {
           content?: string;
           created_at?: string;
         };
+        Relationships: [];
       };
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
 }
