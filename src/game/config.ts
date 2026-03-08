@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { OfficeScene } from './scenes/OfficeScene';
+import { TownScene } from './scenes/TownScene';
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -9,7 +10,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   roundPixels: true,
   backgroundColor: '#1a1a2e',
   parent: 'game-container',
-  scene: [OfficeScene],
+  scene: [OfficeScene, TownScene],
   physics: {
     default: 'arcade',
     arcade: {
