@@ -107,3 +107,9 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  .font-pixel {
+    font-family: var(--font-pixel), monospace;
+  }
+}
