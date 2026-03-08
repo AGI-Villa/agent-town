@@ -3,10 +3,13 @@ import { generateTileset, TILE_SIZE } from '../tiles/tileset-generator';
 import { OFFICE_MAP } from '../maps/office-map';
 import { PICO8_COLORS } from '../tiles/palette';
 import { AgentSprite, Direction } from '../sprites';
+import { PathfindingManager, AgentMovementController, AgentStatus } from '../pathfinding';
 
 export class OfficeScene extends Phaser.Scene {
   private collisionLayer: number[][] = [];
   private testAgents: AgentSprite[] = [];
+  private pathfinder!: PathfindingManager;
+  private movementControllers: Map<string, AgentMovementController> = new Map();
 
   constructor() {
     super({ key: 'OfficeScene' });
@@ -24,6 +27,10 @@ export class OfficeScene extends Phaser.Scene {
 
     // Store collision data
     this.collisionLayer = layers.collision;
+
+    // Initialize pathfinding
+    this.pathfinder = new PathfindingManager();
+    this.pathfinder.setGrid(layers.collision);
 
     // Render ground layer
     this.renderLayer(layers.ground, 0);
@@ -54,69 +61,106 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   private createTestAgents(locations: typeof OFFICE_MAP.locations): void {
-    // Create agents at different workstations
-    const agentConfigs = [
-      { id: 'agent-alice', x: 4, y: 4, state: 'work' as const },
-      { id: 'agent-bob', x: 7, y: 4, state: 'think' as const },
-      { id: 'agent-charlie', x: 10, y: 4, state: 'error' as const },
-      { id: 'agent-diana', x: 13, y: 8, state: 'rest' as const },
-      { id: 'agent-eve', x: 4, y: 8, state: 'idle_down' as const },
-    ];
+    // Create agents with pathfinding at workstations
+    const workstations = locations.workstations;
+    
+    // Agent 1: Working at desk
+    const agent1 = this.createAgentWithMovement('agent-alice', workstations[0].x + 1, workstations[0].y + 1);
+    agent1.work();
+    
+    // Agent 2: Will walk to coffee area
+    const agent2 = this.createAgentWithMovement('agent-bob', workstations[1].x + 1, workstations[1].y + 1);
+    this.scheduleAgentMovement(agent2, 'agent-bob', locations.coffeeArea.x + 1, locations.coffeeArea.y, 'rest');
+    
+    // Agent 3: Thinking at desk
+    const agent3 = this.createAgentWithMovement('agent-charlie', workstations[2].x + 1, workstations[2].y + 1);
+    agent3.think();
+    
+    // Agent 4: Error state
+    const agent4 = this.createAgentWithMovement('agent-diana', workstations[3].x + 1, workstations[3].y + 1);
+    agent4.error();
+    
+    // Agent 5: Will walk from entrance to meeting room
+    const agent5 = this.createAgentWithMovement('agent-eve', locations.entrance.x, locations.entrance.y - 1);
+    this.scheduleAgentMovement(agent5, 'agent-eve', locations.meetingRoom.x + 2, locations.meetingRoom.y + 2, 'idle');
+    
+    // Agent 6: Patrol demo - walks between workstations
+    const agent6 = this.createAgentWithMovement('agent-frank', workstations[4].x + 1, workstations[4].y + 1);
+    this.startPatrolDemo(agent6, 'agent-frank');
+  }
 
-    agentConfigs.forEach(config => {
-      const agent = new AgentSprite(
-        this,
-        config.x * TILE_SIZE + TILE_SIZE / 2,
-        (config.y + 1) * TILE_SIZE, // +1 because sprite origin is bottom
-        config.id
-      );
-
-      // Set initial state
-      switch (config.state) {
-        case 'work':
-          agent.work();
-          break;
-        case 'think':
-          agent.think();
-          break;
-        case 'error':
-          agent.error();
-          break;
-        case 'rest':
-          agent.rest();
-          break;
-        default:
-          agent.idle();
-      }
-
-      this.testAgents.push(agent);
-    });
-
-    // Create a walking agent demo
-    const walkingAgent = new AgentSprite(
+  private createAgentWithMovement(agentId: string, tileX: number, tileY: number): AgentSprite {
+    const agent = new AgentSprite(
       this,
-      locations.entrance.x * TILE_SIZE + TILE_SIZE / 2,
-      (locations.entrance.y + 1) * TILE_SIZE,
-      'agent-walker'
+      tileX * TILE_SIZE + TILE_SIZE / 2,
+      (tileY + 1) * TILE_SIZE,
+      agentId
     );
-    walkingAgent.walk('right');
-    this.testAgents.push(walkingAgent);
+    
+    const controller = new AgentMovementController(this, agent, this.pathfinder);
+    controller.setPosition(tileX, tileY);
+    this.movementControllers.set(agentId, controller);
+    this.testAgents.push(agent);
+    
+    return agent;
+  }
 
-    // Animate the walking agent
-    this.tweens.add({
-      targets: walkingAgent,
-      x: walkingAgent.x + TILE_SIZE * 4,
-      duration: 2000,
-      ease: 'Linear',
-      yoyo: true,
-      repeat: -1,
-      onYoyo: () => {
-        walkingAgent.walk('left');
-      },
-      onRepeat: () => {
-        walkingAgent.walk('right');
-      },
-    });
+  private async scheduleAgentMovement(
+    agent: AgentSprite, 
+    agentId: string, 
+    targetX: number, 
+    targetY: number,
+    endState: 'work' | 'think' | 'rest' | 'error' | 'idle'
+  ): Promise<void> {
+    // Wait a bit before starting movement
+    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+    
+    const controller = this.movementControllers.get(agentId);
+    if (!controller) return;
+    
+    const success = await controller.moveTo(targetX, targetY);
+    
+    if (success) {
+      switch (endState) {
+        case 'work': agent.work(); break;
+        case 'think': agent.think(); break;
+        case 'rest': agent.rest(); break;
+        case 'error': agent.error(); break;
+        default: agent.idle();
+      }
+    }
+  }
+
+  private async startPatrolDemo(agent: AgentSprite, agentId: string): Promise<void> {
+    const locations = OFFICE_MAP.locations;
+    const patrolPoints = [
+      { x: locations.workstations[4].x + 1, y: locations.workstations[4].y + 1 },
+      { x: locations.coffeeArea.x + 1, y: locations.coffeeArea.y },
+      { x: locations.meetingRoom.x + 2, y: locations.meetingRoom.y + 2 },
+      { x: locations.entrance.x, y: locations.entrance.y - 1 },
+    ];
+    
+    let pointIndex = 0;
+    
+    const patrol = async () => {
+      const controller = this.movementControllers.get(agentId);
+      if (!controller) return;
+      
+      const target = patrolPoints[pointIndex];
+      await controller.moveTo(target.x, target.y);
+      
+      // Wait at location
+      agent.idle();
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Move to next point
+      pointIndex = (pointIndex + 1) % patrolPoints.length;
+      patrol();
+    };
+    
+    // Start patrol after delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    patrol();
   }
 
   private renderLayer(layerData: number[][], depth: number): void {
@@ -304,6 +348,60 @@ export class OfficeScene extends Phaser.Scene {
       return true; // Out of bounds = collision
     }
     return this.collisionLayer[tileY][tileX] === 1;
+  }
+
+  // Get pathfinder for external use
+  public getPathfinder(): PathfindingManager {
+    return this.pathfinder;
+  }
+
+  // Move agent to location by status
+  public async moveAgentByStatus(agentId: string, status: AgentStatus): Promise<void> {
+    const controller = this.movementControllers.get(agentId);
+    const agent = this.testAgents.find(a => a.getAgentId() === agentId);
+    if (!controller || !agent) return;
+
+    const locations = OFFICE_MAP.locations;
+    let targetX: number;
+    let targetY: number;
+
+    // Handle error state separately - stay in place
+    if (status === 'error') {
+      agent.error();
+      return;
+    }
+
+    switch (status) {
+      case 'online':
+      case 'working':
+        // Find available workstation
+        const workstation = locations.workstations.find(ws => 
+          !this.pathfinder.isTileOccupied(ws.x + 1, ws.y + 1, agentId)
+        ) || locations.workstations[0];
+        targetX = workstation.x + 1;
+        targetY = workstation.y + 1;
+        break;
+      case 'idle':
+        targetX = locations.coffeeArea.x + 1;
+        targetY = locations.coffeeArea.y;
+        break;
+      case 'offline':
+        // Move to entrance and hide
+        targetX = locations.entrance.x;
+        targetY = locations.entrance.y - 1;
+        break;
+    }
+
+    const success = await controller.moveTo(targetX, targetY);
+    
+    if (success) {
+      switch (status) {
+        case 'working': agent.work(); break;
+        case 'idle': agent.rest(); break;
+        case 'offline': agent.setVisible(false); break;
+        default: agent.idle();
+      }
+    }
   }
 
   update(): void {
