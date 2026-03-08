@@ -1,0 +1,403 @@
+import Phaser from 'phaser';
+import { PICO8_COLORS } from '../tiles/palette';
+import { 
+  AnimationManager, 
+  AnimationState, 
+  Direction,
+  SPRITE_CONFIG,
+  ANIMATION_DEFS 
+} from './AnimationManager';
+
+// Pico-8 colors for agent variants (based on agent_id hash)
+const AGENT_COLORS = [
+  PICO8_COLORS.blue,
+  PICO8_COLORS.red,
+  PICO8_COLORS.green,
+  PICO8_COLORS.orange,
+  PICO8_COLORS.pink,
+  PICO8_COLORS.yellow,
+  PICO8_COLORS.lavender,
+  PICO8_COLORS.peach,
+];
+
+// Simple hash function for agent_id
+function hashAgentId(agentId: string): number {
+  let hash = 0;
+  for (let i = 0; i < agentId.length; i++) {
+    const char = agentId.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash);
+}
+
+export class AgentSprite extends Phaser.GameObjects.Container {
+  private sprite: Phaser.GameObjects.Sprite;
+  private animManager: AnimationManager;
+  private agentId: string;
+  private colorIndex: number;
+  private textureKey: string;
+  private currentState: AnimationState = 'idle_down';
+  private statusIndicator?: Phaser.GameObjects.Graphics;
+
+  constructor(
+    scene: Phaser.Scene,
+    x: number,
+    y: number,
+    agentId: string
+  ) {
+    super(scene, x, y);
+
+    this.agentId = agentId;
+    this.colorIndex = hashAgentId(agentId) % AGENT_COLORS.length;
+    this.textureKey = `agent_${this.colorIndex}`;
+    this.animManager = new AnimationManager(scene);
+
+    // Generate sprite texture if not exists
+    this.generateSpriteTexture();
+
+    // Register animations
+    this.animManager.registerAnimations(this.textureKey);
+
+    // Create sprite
+    this.sprite = scene.add.sprite(0, 0, this.textureKey, 0);
+    this.sprite.setOrigin(0.5, 1); // Bottom center origin for proper positioning
+    this.add(this.sprite);
+
+    // Create status indicator (for think/error bubbles)
+    this.statusIndicator = scene.add.graphics();
+    this.statusIndicator.setPosition(0, -SPRITE_CONFIG.frameHeight - 4);
+    this.add(this.statusIndicator);
+
+    // Set depth based on y position
+    this.setDepth(y);
+
+    // Add to scene
+    scene.add.existing(this);
+
+    // Play initial animation
+    this.playAnimation('idle_down');
+  }
+
+  private generateSpriteTexture(): void {
+    if (this.scene.textures.exists(this.textureKey)) return;
+
+    const { frameWidth, frameHeight, framesPerRow, rows } = SPRITE_CONFIG;
+    const width = frameWidth * framesPerRow;
+    const height = frameHeight * rows;
+    const color = AGENT_COLORS[this.colorIndex];
+
+    const graphics = this.scene.add.graphics();
+    
+    // Generate all frames
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < framesPerRow; col++) {
+        const x = col * frameWidth;
+        const y = row * frameHeight;
+        this.drawAgentFrame(graphics, x, y, row, col, color);
+      }
+    }
+
+    // Generate texture from graphics
+    graphics.generateTexture(this.textureKey, width, height);
+    graphics.destroy();
+  }
+
+  private drawAgentFrame(
+    graphics: Phaser.GameObjects.Graphics,
+    x: number,
+    y: number,
+    row: number,
+    col: number,
+    color: number
+  ): void {
+    const fw = SPRITE_CONFIG.frameWidth;
+    const fh = SPRITE_CONFIG.frameHeight;
+
+    // Clear area
+    graphics.fillStyle(0x000000, 0);
+    graphics.fillRect(x, y, fw, fh);
+
+    // Body color
+    const bodyColor = color;
+    const skinColor = PICO8_COLORS.peach;
+    const hairColor = PICO8_COLORS.brown;
+    const shoeColor = PICO8_COLORS.darkGray;
+
+    if (row < 4) {
+      // Walking animations (rows 0-3)
+      const direction = row; // 0=down, 1=up, 2=left, 3=right
+      const frame = col % 4;
+      this.drawWalkFrame(graphics, x, y, direction, frame, bodyColor, skinColor, hairColor, shoeColor);
+    } else {
+      // Special animations (row 4)
+      const animType = Math.floor(col / 2); // 0=work, 1=think, 2=rest, 3=error
+      const frame = col % 2;
+      this.drawSpecialFrame(graphics, x, y, animType, frame, bodyColor, skinColor, hairColor, shoeColor);
+    }
+  }
+
+  private drawWalkFrame(
+    graphics: Phaser.GameObjects.Graphics,
+    x: number,
+    y: number,
+    direction: number,
+    frame: number,
+    bodyColor: number,
+    skinColor: number,
+    hairColor: number,
+    shoeColor: number
+  ): void {
+    // Leg offset for walking animation
+    const legOffset = frame === 1 || frame === 3 ? 1 : 0;
+    const armOffset = frame === 0 || frame === 2 ? 1 : -1;
+
+    // Head (6x6)
+    graphics.fillStyle(skinColor);
+    graphics.fillRect(x + 5, y + 2, 6, 6);
+
+    // Hair
+    graphics.fillStyle(hairColor);
+    if (direction === 0) {
+      // Facing down - no hair visible
+    } else if (direction === 1) {
+      // Facing up - full hair
+      graphics.fillRect(x + 5, y + 1, 6, 3);
+    } else {
+      // Side view - partial hair
+      graphics.fillRect(x + 5, y + 1, 6, 2);
+    }
+
+    // Eyes (only when facing down or sides)
+    if (direction !== 1) {
+      graphics.fillStyle(PICO8_COLORS.black);
+      if (direction === 0) {
+        // Facing down
+        graphics.fillRect(x + 6, y + 4, 1, 1);
+        graphics.fillRect(x + 9, y + 4, 1, 1);
+      } else if (direction === 2) {
+        // Facing left
+        graphics.fillRect(x + 5, y + 4, 1, 1);
+      } else {
+        // Facing right
+        graphics.fillRect(x + 10, y + 4, 1, 1);
+      }
+    }
+
+    // Body (8x8)
+    graphics.fillStyle(bodyColor);
+    graphics.fillRect(x + 4, y + 8, 8, 8);
+
+    // Arms
+    graphics.fillStyle(skinColor);
+    if (direction === 2) {
+      // Left facing - one arm visible
+      graphics.fillRect(x + 11, y + 9 + armOffset, 2, 4);
+    } else if (direction === 3) {
+      // Right facing - one arm visible
+      graphics.fillRect(x + 3, y + 9 + armOffset, 2, 4);
+    } else {
+      // Front/back - both arms
+      graphics.fillRect(x + 2, y + 9 + armOffset, 2, 4);
+      graphics.fillRect(x + 12, y + 9 - armOffset, 2, 4);
+    }
+
+    // Legs
+    graphics.fillStyle(PICO8_COLORS.darkBlue);
+    graphics.fillRect(x + 5, y + 16, 3, 5 + legOffset);
+    graphics.fillRect(x + 8, y + 16, 3, 5 - legOffset);
+
+    // Shoes
+    graphics.fillStyle(shoeColor);
+    graphics.fillRect(x + 4, y + 21 + legOffset, 4, 2);
+    graphics.fillRect(x + 8, y + 21 - legOffset, 4, 2);
+  }
+
+  private drawSpecialFrame(
+    graphics: Phaser.GameObjects.Graphics,
+    x: number,
+    y: number,
+    animType: number,
+    frame: number,
+    bodyColor: number,
+    skinColor: number,
+    hairColor: number,
+    shoeColor: number
+  ): void {
+    // Base character (facing down, sitting/standing)
+    // Head
+    graphics.fillStyle(skinColor);
+    graphics.fillRect(x + 5, y + 2, 6, 6);
+
+    // Hair
+    graphics.fillStyle(hairColor);
+
+    // Eyes
+    graphics.fillStyle(PICO8_COLORS.black);
+    graphics.fillRect(x + 6, y + 4, 1, 1);
+    graphics.fillRect(x + 9, y + 4, 1, 1);
+
+    // Body
+    graphics.fillStyle(bodyColor);
+    graphics.fillRect(x + 4, y + 8, 8, 8);
+
+    // Legs (sitting for work/rest)
+    graphics.fillStyle(PICO8_COLORS.darkBlue);
+    
+    if (animType === 0 || animType === 2) {
+      // Sitting (work/rest)
+      graphics.fillRect(x + 4, y + 16, 8, 3);
+      graphics.fillStyle(shoeColor);
+      graphics.fillRect(x + 3, y + 19, 4, 2);
+      graphics.fillRect(x + 9, y + 19, 4, 2);
+    } else {
+      // Standing (think/error)
+      graphics.fillRect(x + 5, y + 16, 3, 5);
+      graphics.fillRect(x + 8, y + 16, 3, 5);
+      graphics.fillStyle(shoeColor);
+      graphics.fillRect(x + 4, y + 21, 4, 2);
+      graphics.fillRect(x + 8, y + 21, 4, 2);
+    }
+
+    // Animation-specific details
+    switch (animType) {
+      case 0: // Work - typing animation
+        // Arms on keyboard
+        graphics.fillStyle(skinColor);
+        const armY = frame === 0 ? 12 : 13;
+        graphics.fillRect(x + 2, y + armY, 3, 3);
+        graphics.fillRect(x + 11, y + armY, 3, 3);
+        break;
+
+      case 1: // Think - bubble animation
+        graphics.fillStyle(skinColor);
+        graphics.fillRect(x + 2, y + 10, 2, 4);
+        graphics.fillRect(x + 12, y + 10, 2, 4);
+        // Thought bubble dots
+        graphics.fillStyle(PICO8_COLORS.white);
+        if (frame === 1) {
+          graphics.fillRect(x + 13, y + 1, 2, 2);
+          graphics.fillRect(x + 14, y - 1, 1, 1);
+        }
+        break;
+
+      case 2: // Rest - coffee cup
+        graphics.fillStyle(skinColor);
+        graphics.fillRect(x + 2, y + 10, 2, 4);
+        // Arm holding cup
+        graphics.fillRect(x + 11, y + 9, 3, 4);
+        // Coffee cup
+        graphics.fillStyle(PICO8_COLORS.white);
+        graphics.fillRect(x + 13, y + 8, 3, 4);
+        graphics.fillStyle(PICO8_COLORS.brown);
+        graphics.fillRect(x + 13, y + 9, 3, 2);
+        // Steam
+        if (frame === 1) {
+          graphics.fillStyle(PICO8_COLORS.lightGray);
+          graphics.fillRect(x + 14, y + 5, 1, 2);
+        }
+        break;
+
+      case 3: // Error - fire/frustration
+        graphics.fillStyle(skinColor);
+        graphics.fillRect(x + 2, y + 9, 2, 4);
+        graphics.fillRect(x + 12, y + 9, 2, 4);
+        // Angry eyes
+        graphics.fillStyle(PICO8_COLORS.red);
+        graphics.fillRect(x + 6, y + 4, 1, 1);
+        graphics.fillRect(x + 9, y + 4, 1, 1);
+        // Fire above head
+        graphics.fillStyle(PICO8_COLORS.red);
+        graphics.fillRect(x + 6, y - 1, 4, 2);
+        if (frame === 1) {
+          graphics.fillStyle(PICO8_COLORS.orange);
+          graphics.fillRect(x + 7, y - 3, 2, 2);
+          graphics.fillStyle(PICO8_COLORS.yellow);
+          graphics.fillRect(x + 7, y - 4, 2, 1);
+        }
+        break;
+    }
+  }
+
+  // Play animation by state
+  playAnimation(state: AnimationState): void {
+    if (this.currentState === state && this.sprite.anims.isPlaying) return;
+    
+    this.currentState = state;
+    this.animManager.state = state;
+    
+    const animKey = this.animManager.getAnimationKey(this.textureKey, state);
+    this.sprite.play(animKey);
+
+    // Update status indicator
+    this.updateStatusIndicator(state);
+  }
+
+  // Update status indicator based on state
+  private updateStatusIndicator(state: AnimationState): void {
+    if (!this.statusIndicator) return;
+    
+    this.statusIndicator.clear();
+
+    if (state === 'think') {
+      // Draw thought bubble
+      this.statusIndicator.fillStyle(PICO8_COLORS.white);
+      this.statusIndicator.fillCircle(0, -8, 6);
+      this.statusIndicator.fillCircle(-2, -2, 2);
+      this.statusIndicator.fillCircle(-4, 2, 1);
+    } else if (state === 'error') {
+      // Draw exclamation mark
+      this.statusIndicator.fillStyle(PICO8_COLORS.red);
+      this.statusIndicator.fillRect(-1, -12, 2, 6);
+      this.statusIndicator.fillRect(-1, -4, 2, 2);
+    }
+  }
+
+  // Movement methods
+  setDirection(direction: Direction): void {
+    this.animManager.facing = direction;
+  }
+
+  walk(direction: Direction): void {
+    this.setDirection(direction);
+    this.playAnimation(this.animManager.getWalkState(direction));
+  }
+
+  idle(): void {
+    this.playAnimation(this.animManager.getIdleState(this.animManager.facing));
+  }
+
+  work(): void {
+    this.playAnimation('work');
+  }
+
+  think(): void {
+    this.playAnimation('think');
+  }
+
+  rest(): void {
+    this.playAnimation('rest');
+  }
+
+  error(): void {
+    this.playAnimation('error');
+  }
+
+  // Update depth based on y position (for proper layering)
+  updateDepth(): void {
+    this.setDepth(this.y);
+  }
+
+  // Getters
+  getAgentId(): string {
+    return this.agentId;
+  }
+
+  getColorIndex(): number {
+    return this.colorIndex;
+  }
+
+  getCurrentState(): AnimationState {
+    return this.currentState;
+  }
+}

@@ -2,9 +2,11 @@ import Phaser from 'phaser';
 import { generateTileset, TILE_SIZE } from '../tiles/tileset-generator';
 import { OFFICE_MAP } from '../maps/office-map';
 import { PICO8_COLORS } from '../tiles/palette';
+import { AgentSprite, Direction } from '../sprites';
 
 export class OfficeScene extends Phaser.Scene {
   private collisionLayer: number[][] = [];
+  private testAgents: AgentSprite[] = [];
 
   constructor() {
     super({ key: 'OfficeScene' });
@@ -46,6 +48,75 @@ export class OfficeScene extends Phaser.Scene {
 
     // Set camera bounds
     this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
+
+    // Create test agents to demonstrate sprite system
+    this.createTestAgents(locations);
+  }
+
+  private createTestAgents(locations: typeof OFFICE_MAP.locations): void {
+    // Create agents at different workstations
+    const agentConfigs = [
+      { id: 'agent-alice', x: 4, y: 4, state: 'work' as const },
+      { id: 'agent-bob', x: 7, y: 4, state: 'think' as const },
+      { id: 'agent-charlie', x: 10, y: 4, state: 'error' as const },
+      { id: 'agent-diana', x: 13, y: 8, state: 'rest' as const },
+      { id: 'agent-eve', x: 4, y: 8, state: 'idle_down' as const },
+    ];
+
+    agentConfigs.forEach(config => {
+      const agent = new AgentSprite(
+        this,
+        config.x * TILE_SIZE + TILE_SIZE / 2,
+        (config.y + 1) * TILE_SIZE, // +1 because sprite origin is bottom
+        config.id
+      );
+
+      // Set initial state
+      switch (config.state) {
+        case 'work':
+          agent.work();
+          break;
+        case 'think':
+          agent.think();
+          break;
+        case 'error':
+          agent.error();
+          break;
+        case 'rest':
+          agent.rest();
+          break;
+        default:
+          agent.idle();
+      }
+
+      this.testAgents.push(agent);
+    });
+
+    // Create a walking agent demo
+    const walkingAgent = new AgentSprite(
+      this,
+      locations.entrance.x * TILE_SIZE + TILE_SIZE / 2,
+      (locations.entrance.y + 1) * TILE_SIZE,
+      'agent-walker'
+    );
+    walkingAgent.walk('right');
+    this.testAgents.push(walkingAgent);
+
+    // Animate the walking agent
+    this.tweens.add({
+      targets: walkingAgent,
+      x: walkingAgent.x + TILE_SIZE * 4,
+      duration: 2000,
+      ease: 'Linear',
+      yoyo: true,
+      repeat: -1,
+      onYoyo: () => {
+        walkingAgent.walk('left');
+      },
+      onRepeat: () => {
+        walkingAgent.walk('right');
+      },
+    });
   }
 
   private renderLayer(layerData: number[][], depth: number): void {
@@ -236,6 +307,7 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   update(): void {
-    // Game loop logic will be added in future issues
+    // Update agent depths for proper layering
+    this.testAgents.forEach(agent => agent.updateDepth());
   }
 }
