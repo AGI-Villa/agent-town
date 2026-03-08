@@ -7,3 +7,5 @@ export {
   type Direction,
   type AnimationDef,
 } from './AnimationManager';
+export { SpeechBubble, type SpeechBubbleConfig } from './SpeechBubble';
+export { ParticleEffect, type ParticleType } from './ParticleEffect';

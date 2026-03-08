@@ -4,26 +4,30 @@ import { TOWN_MAP, TownArea } from '../maps/town-map';
 import { PICO8_COLORS } from '../tiles/palette';
 import { AgentSprite } from '../sprites';
 import { PathfindingManager, AgentMovementController } from '../pathfinding';
-import { DayNightCycle, TimeOfDay } from '../systems';
+import { DayNightCycle, TimeOfDay, SocialInteractionSystem, SocialInteraction } from '../systems';
 import type { AgentStatus as ApiAgentStatus } from '@/lib/types';
 
 // Event callbacks for React integration
 type AgentClickCallback = (agentId: string) => void;
 type AreaChangeCallback = (area: TownArea) => void;
 type ViewportChangeCallback = (x: number, y: number, w: number, h: number) => void;
+type InteractionCallback = (interaction: SocialInteraction) => void;
 
 let agentClickCallback: AgentClickCallback | null = null;
 let areaChangeCallback: AreaChangeCallback | null = null;
 let viewportChangeCallback: ViewportChangeCallback | null = null;
+let interactionCallback: InteractionCallback | null = null;
 
 export function setTownCallbacks(callbacks: {
   onAgentClick?: AgentClickCallback | null;
   onAreaChange?: AreaChangeCallback | null;
   onViewportChange?: ViewportChangeCallback | null;
+  onInteraction?: InteractionCallback | null;
 }): void {
   agentClickCallback = callbacks.onAgentClick ?? null;
   areaChangeCallback = callbacks.onAreaChange ?? null;
   viewportChangeCallback = callbacks.onViewportChange ?? null;
+  interactionCallback = callbacks.onInteraction ?? null;
 }
 
 export class TownScene extends Phaser.Scene {
@@ -33,6 +37,7 @@ export class TownScene extends Phaser.Scene {
   private pathfinder!: PathfindingManager;
   private movementControllers: Map<string, AgentMovementController> = new Map();
   private dayNightCycle!: DayNightCycle;
+  private socialSystem!: SocialInteractionSystem;
   private currentArea: TownArea = 'office';
   private timeText!: Phaser.GameObjects.Text;
   private isDragging = false;
@@ -68,6 +73,15 @@ export class TownScene extends Phaser.Scene {
     });
     this.dayNightCycle.create(mapWidth, mapHeight);
     this.dayNightCycle.start();
+
+    // Set up social interaction system
+    this.socialSystem = new SocialInteractionSystem(this);
+    this.socialSystem.onInteraction((interaction) => {
+      if (interactionCallback) {
+        interactionCallback(interaction);
+      }
+    });
+    this.socialSystem.startPolling(5000);
 
     // Time display
     this.timeText = this.add.text(mapWidth - 80, 16, '12:00', {
@@ -465,6 +479,10 @@ export class TownScene extends Phaser.Scene {
     
     this.movementControllers.set(agentData.agent_id, controller);
     this.agents.set(agentData.agent_id, agent);
+    
+    // Register with social system
+    this.socialSystem.registerAgent(agentData.agent_id, agent);
+    
     this.applyAgentStatus(agent, agentData.status);
   }
 
@@ -502,6 +520,7 @@ export class TownScene extends Phaser.Scene {
       agent.destroy();
       this.agents.delete(agentId);
     }
+    this.socialSystem.unregisterAgent(agentId);
     this.movementControllers.delete(agentId);
     this.agentData.delete(agentId);
   }
@@ -514,8 +533,26 @@ export class TownScene extends Phaser.Scene {
     return this.dayNightCycle.getCurrentTime();
   }
 
+  // Social interaction methods
+  showSpeechBubble(agentId: string, message: string, duration?: number): void {
+    this.socialSystem.showSpeechBubble(agentId, message, duration);
+  }
+
+  hideSpeechBubble(agentId: string): void {
+    this.socialSystem.hideSpeechBubble(agentId);
+  }
+
+  showHeartEffect(agentId: string): void {
+    this.socialSystem.showHeartEffect(agentId);
+  }
+
+  showStarEffect(agentId: string): void {
+    this.socialSystem.showStarEffect(agentId);
+  }
+
   update(): void {
     this.dayNightCycle.update();
+    this.socialSystem.update();
     this.timeText.setText(this.dayNightCycle.getTimeString());
     this.agents.forEach(agent => agent.updateDepth());
   }
@@ -526,5 +563,6 @@ export class TownScene extends Phaser.Scene {
       this.pollTimer = null;
     }
     this.dayNightCycle.destroy();
+    this.socialSystem.destroy();
   }
 }
