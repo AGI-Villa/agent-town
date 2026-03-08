@@ -4,7 +4,7 @@ import { TOWN_MAP, TownArea } from '../maps/town-map';
 import { PICO8_COLORS } from '../tiles/palette';
 import { AgentSprite } from '../sprites';
 import { PathfindingManager, AgentMovementController } from '../pathfinding';
-import { DayNightCycle, TimeOfDay, GameTimeSystem, TimeSpeed, ScheduleSystem } from '../systems';
+import { DayNightCycle, TimeOfDay, GameTimeSystem, TimeSpeed, ScheduleSystem, SocialInteractionSystem } from '../systems';
 import type { AgentStatus as ApiAgentStatus } from '@/lib/types';
 
 // Event callbacks for React integration
@@ -39,6 +39,7 @@ export class TownScene extends Phaser.Scene {
   private dayNightCycle!: DayNightCycle;
   private gameTime!: GameTimeSystem;
   private scheduleSystem!: ScheduleSystem;
+  private socialSystem!: SocialInteractionSystem;
   private currentArea: TownArea = 'office';
   private timeText!: Phaser.GameObjects.Text;
   private speedText!: Phaser.GameObjects.Text;
@@ -78,6 +79,10 @@ export class TownScene extends Phaser.Scene {
 
     // Set up schedule system
     this.scheduleSystem = new ScheduleSystem(this, this.gameTime, this.pathfinder);
+
+    // Set up social interaction system
+    this.socialSystem = new SocialInteractionSystem(this);
+    this.socialSystem.start();
 
     // Set up day/night cycle synced with game time
     this.dayNightCycle = new DayNightCycle(this, {
@@ -545,6 +550,9 @@ export class TownScene extends Phaser.Scene {
     // Register with schedule system
     this.scheduleSystem.registerAgent(agentData.agent_id, agent, controller);
     
+    // Register with social interaction system
+    this.socialSystem.registerAgent(agentData.agent_id, agent);
+    
     this.applyAgentStatus(agent, agentData.status);
   }
 
@@ -583,6 +591,7 @@ export class TownScene extends Phaser.Scene {
       this.agents.delete(agentId);
     }
     this.scheduleSystem.unregisterAgent(agentId);
+    this.socialSystem.unregisterAgent(agentId);
     this.movementControllers.delete(agentId);
     this.agentData.delete(agentId);
   }
@@ -614,6 +623,7 @@ export class TownScene extends Phaser.Scene {
     this.gameTime.update();
     this.dayNightCycle.update();
     this.scheduleSystem.update();
+    this.socialSystem.update();
     this.timeText.setText(this.gameTime.getTimeString());
     this.agents.forEach(agent => agent.updateDepth());
   }
@@ -626,5 +636,6 @@ export class TownScene extends Phaser.Scene {
     this.gameTime.destroy();
     this.dayNightCycle.destroy();
     this.scheduleSystem.destroy();
+    this.socialSystem.destroy();
   }
 }
