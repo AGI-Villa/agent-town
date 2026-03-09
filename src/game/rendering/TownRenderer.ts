@@ -56,33 +56,71 @@ export class TownRenderer {
         g.fillRect(px + 4, py + 6, 8, 1); g.fillRect(px + 16, py + 20, 10, 1);
         break;
 
-      case 3: { // Grass — SINGLE base, subtle micro-variation
-        g.fillStyle(0x6aba6e); g.fillRect(px, py, T, T);
-        // Micro patch — very subtle, same family green
-        g.fillStyle(0x62b266, 0.12);
-        g.fillRect(px + (h % 14) + 2, py + ((h >> 4) % 14) + 2, 16 + (h % 6), 14 + ((h >> 8) % 6));
-        // Grass blade
-        g.fillStyle(0x78cc7a, 0.22);
+      case 3: { // Grass — natural yellow-green with multi-layer variation
+        // Base color: lower saturation, more natural yellow-green
+        g.fillStyle(0x7ab87a); g.fillRect(px, py, T, T);
+        // Layer 1: Large subtle patch
+        g.fillStyle(0x72b072, 0.15);
+        g.fillRect(px + (h % 10), py + ((h >> 3) % 10), 20 + (h % 8), 18 + ((h >> 6) % 8));
+        // Layer 2: Medium patch
+        g.fillStyle(0x82c082, 0.12);
+        g.fillRect(px + ((h >> 4) % 12) + 4, py + ((h >> 7) % 12) + 4, 14 + (h % 4), 12 + ((h >> 10) % 4));
+        // Layer 3: Small highlight patch
+        g.fillStyle(0x8ac88a, 0.08);
+        g.fillRect(px + ((h >> 2) % 16) + 6, py + ((h >> 5) % 14) + 8, 8, 6);
+        // Grass blades
+        g.fillStyle(0x88d088, 0.2);
         g.fillRect(px + (h % 24) + 3, py + ((h >> 3) % 20) + 5, 1, 3);
-        if (h % 5 === 0) {
-          g.fillRect(px + ((h >> 6) % 20) + 6, py + ((h >> 9) % 16) + 8, 1, 4);
+        if (h % 4 === 0) {
+          g.fillRect(px + ((h >> 6) % 20) + 8, py + ((h >> 9) % 16) + 10, 1, 4);
+        }
+        // Small details: fallen leaves, pebbles, mushrooms (~3% each)
+        if (h % 35 === 0) { // Fallen leaf (autumn color)
+          g.fillStyle(0xc89858, 0.35);
+          g.fillRect(px + (h % 20) + 6, py + ((h >> 4) % 18) + 8, 4, 3);
+          g.fillStyle(0xb88848, 0.25);
+          g.fillRect(px + (h % 20) + 7, py + ((h >> 4) % 18) + 9, 2, 1);
+        }
+        if (h % 40 === 1) { // Small pebble
+          g.fillStyle(0x9a9890, 0.3);
+          g.fillCircle(px + ((h >> 2) % 22) + 5, py + ((h >> 5) % 20) + 6, 2);
+        }
+        if (h % 50 === 2) { // Tiny mushroom
+          g.fillStyle(0xddccbb, 0.4);
+          g.fillRect(px + ((h >> 3) % 20) + 8, py + ((h >> 6) % 16) + 12, 2, 3);
+          g.fillStyle(0xcc6644, 0.5);
+          g.fillCircle(px + ((h >> 3) % 20) + 9, py + ((h >> 6) % 16) + 11, 2.5);
         }
         break;
       }
 
-      case 4: { // Cobblestone road
+      case 4: { // Cobblestone road — with curb stones and details
         g.fillStyle(0x8a8890); g.fillRect(px, py, T, T);
         const sc = [0x969494, 0x8a8888, 0x7e7c7c, 0x908e8e];
         g.fillStyle(sc[h % 4], 0.65);
-        g.fillRect(px + 1, py + 1, 14, 14);
+        g.fillRect(px + 3, py + 3, 12, 12);
         g.fillStyle(sc[(h >> 4) % 4], 0.65);
-        g.fillRect(px + 17, py + 1, 14, 14);
+        g.fillRect(px + 17, py + 3, 12, 12);
         g.fillStyle(sc[(h >> 8) % 4], 0.65);
-        g.fillRect(px + 1, py + 17, 14, 14);
+        g.fillRect(px + 3, py + 17, 12, 12);
         g.fillStyle(sc[(h >> 12) % 4], 0.65);
-        g.fillRect(px + 17, py + 17, 14, 14);
+        g.fillRect(px + 17, py + 17, 12, 12);
+        // Grout lines
         g.fillStyle(0x6a6868, 0.35);
-        g.fillRect(px + 15, py, 2, T); g.fillRect(px, py + 15, T, 2);
+        g.fillRect(px + 15, py + 2, 2, T - 4); g.fillRect(px + 2, py + 15, T - 4, 2);
+        // Curb stones on edges (lighter color)
+        g.fillStyle(0xb8b4a8, 0.6);
+        g.fillRect(px, py, 2, T); g.fillRect(px + T - 2, py, 2, T);
+        // Small cracks and grass growing through (~5%)
+        if (h % 20 === 0) {
+          g.fillStyle(0x5a5858, 0.4);
+          g.fillRect(px + (h % 18) + 6, py + ((h >> 3) % 14) + 8, 6, 1);
+          g.fillRect(px + (h % 18) + 8, py + ((h >> 3) % 14) + 6, 1, 4);
+        }
+        if (h % 22 === 1) { // Grass through crack
+          g.fillStyle(0x6ab86a, 0.35);
+          g.fillRect(px + ((h >> 2) % 20) + 6, py + ((h >> 5) % 18) + 8, 1, 3);
+        }
         break;
       }
 
@@ -179,24 +217,54 @@ export class TownRenderer {
         break;
       }
 
-      case 11: { // Dirt path
+      case 11: { // Dirt path — wider gradient transition to grass
+        // Center: warm brown
         g.fillStyle(0xb8a078); g.fillRect(px, py, T, T);
-        g.fillStyle(0xa89068, 0.3);
-        g.fillRect(px + (h % 10) + 6, py + ((h >> 4) % 14) + 6, 12, 10);
-        // Grass edges at top/bottom
-        g.fillStyle(0x6aba6e, 0.25);
+        g.fillStyle(0xa89068, 0.35);
+        g.fillRect(px + 4, py + 6, T - 8, T - 12);
+        // Gradient transition zones (top and bottom)
+        g.fillStyle(0x9a9068, 0.25);
+        g.fillRect(px, py + 3, T, 4); g.fillRect(px, py + T - 7, T, 4);
+        // Grass blending at edges (wider, 6px)
+        g.fillStyle(0x7ab87a, 0.35);
+        g.fillRect(px, py, T, 6); g.fillRect(px, py + T - 6, T, 6);
+        g.fillStyle(0x8ac88a, 0.2);
         g.fillRect(px, py, T, 3); g.fillRect(px, py + T - 3, T, 3);
+        // Scattered pebbles
+        g.fillStyle(0x9a9488, 0.3);
+        g.fillRect(px + (h % 18) + 6, py + ((h >> 3) % 12) + 10, 3, 2);
+        if (h % 4 === 0) {
+          g.fillRect(px + ((h >> 5) % 16) + 8, py + ((h >> 8) % 10) + 12, 2, 2);
+        }
+        // Occasional footprint impression
+        if (h % 15 === 0) {
+          g.fillStyle(0xa08058, 0.2);
+          g.fillRect(px + (h % 14) + 8, py + 12, 4, 6);
+        }
         break;
       }
 
-      case 12: { // Plaza cobblestone (warm, decorative)
+      case 12: { // Plaza cobblestone (warm, decorative with pattern)
         g.fillStyle(0xc8b898); g.fillRect(px, py, T, T);
-        g.fillStyle(0xd8c8a8, 0.45);
+        // Alternating tile pattern
+        g.fillStyle(0xd8c8a8, 0.5);
         g.fillRect(px + 1, py + 1, 14, 14); g.fillRect(px + 17, py + 17, 14, 14);
-        g.fillStyle(0xb8a888, 0.45);
+        g.fillStyle(0xb8a888, 0.5);
         g.fillRect(px + 17, py + 1, 14, 14); g.fillRect(px + 1, py + 17, 14, 14);
-        g.fillStyle(0xa89878, 0.25);
+        // Grout lines
+        g.fillStyle(0xa89878, 0.3);
         g.fillRect(px + 15, py, 2, T); g.fillRect(px, py + 15, T, 2);
+        // Decorative center diamond pattern (for center tiles)
+        if ((tx + ty) % 4 === 0) {
+          g.fillStyle(0xe8d8b8, 0.4);
+          // Diamond shape
+          g.fillRect(px + 14, py + 10, 4, 4);
+          g.fillRect(px + 12, py + 12, 8, 8);
+          g.fillRect(px + 14, py + 18, 4, 4);
+        }
+        // Subtle wear marks
+        g.fillStyle(0xb0a080, 0.15);
+        g.fillRect(px + (h % 12) + 6, py + ((h >> 3) % 12) + 6, 8, 6);
         break;
       }
     }
@@ -407,6 +475,48 @@ export class TownRenderer {
         g.fillStyle(0xbb9868); g.fillRect(px, py + 2, T, 4); g.fillRect(px, py + T - 6, T, 4);
         g.fillStyle(0x7a5830); g.fillRect(px + 2, py, 4, T); g.fillRect(px + T - 6, py, 4, T);
         break;
+
+      // ─── Park new elements ───
+      case 86: { // Picnic table
+        // Table top
+        g.fillStyle(0xab8864); g.fillRect(px + 2, py + 10, 28, 12);
+        g.fillStyle(0x9a7854); g.fillRect(px + 2, py + 10, 28, 2);
+        // Benches on sides
+        g.fillStyle(0x9a7854); g.fillRect(px + 4, py + 6, 24, 4);
+        g.fillStyle(0x9a7854); g.fillRect(px + 4, py + 22, 24, 4);
+        // Legs
+        g.fillStyle(0x7a5834); g.fillRect(px + 6, py + 26, 3, 6); g.fillRect(px + 23, py + 26, 3, 6);
+        break;
+      }
+      case 87: { // Swing set
+        // Frame
+        g.fillStyle(0x6a6a6a); g.fillRect(px + 4, py + 2, 3, 28); g.fillRect(px + 25, py + 2, 3, 28);
+        g.fillStyle(0x5a5a5a); g.fillRect(px + 4, py + 2, 24, 3);
+        // Swing chains
+        g.fillStyle(0x888888); g.fillRect(px + 12, py + 5, 1, 14); g.fillRect(px + 19, py + 5, 1, 14);
+        // Seat
+        g.fillStyle(0xcc6644); g.fillRect(px + 10, py + 18, 12, 3);
+        break;
+      }
+      case 88: { // Small pavilion/gazebo
+        // Roof
+        g.fillStyle(0xcc7755); g.fillRect(px, py, T, 10);
+        g.fillStyle(0xbb6644); g.fillRect(px + 2, py + 8, T - 4, 3);
+        // Posts
+        g.fillStyle(0x8a7a6a); g.fillRect(px + 4, py + 10, 3, 20); g.fillRect(px + 25, py + 10, 3, 20);
+        // Floor
+        g.fillStyle(0xc8b898, 0.6); g.fillRect(px + 2, py + 26, 28, 6);
+        break;
+      }
+      case 89: { // Reeds/cattails (pond edge)
+        // Stems
+        g.fillStyle(0x6a9a5a);
+        g.fillRect(px + 8, py + 10, 2, 18); g.fillRect(px + 14, py + 8, 2, 20); g.fillRect(px + 20, py + 12, 2, 16); g.fillRect(px + 26, py + 14, 2, 14);
+        // Cattail heads
+        g.fillStyle(0x8a6a4a);
+        g.fillRect(px + 7, py + 6, 4, 6); g.fillRect(px + 13, py + 4, 4, 6); g.fillRect(px + 19, py + 8, 4, 6); g.fillRect(px + 25, py + 10, 4, 5);
+        break;
+      }
 
       // ─── Cafe/Store furniture ───
       case 90: // cafe counter

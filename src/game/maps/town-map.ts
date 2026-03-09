@@ -184,11 +184,14 @@ function getFurniture(x: number, y: number): number {
     if (y === 12 && x >= 15 && x <= 38) return 70;
     if (x === 15 && y >= 1 && y <= 12) return 71;
     if (x === 38 && y >= 1 && y <= 12) return 71;
-    // Trees along edges
+    // Trees along edges (varied sizes via different positions)
     if ((x === 16 || x === 18 || x === 35 || x === 37) && y === 2) return 72;
     if ((x === 16 || x === 37) && y === 11) return 72;
     if (x === 19 && y === 3) return 72;
     if (x === 34 && y === 3) return 72;
+    // Additional trees for density
+    if (x === 17 && y === 6) return 72;
+    if (x === 36 && y === 6) return 72;
     // Benches
     if (x === 18 && y === 5) return 73;
     if (x === 33 && y === 5) return 73;
@@ -196,6 +199,12 @@ function getFurniture(x: number, y: number): number {
     if (x === 20 && y === 10) return 73;
     if (x === 32 && y === 10) return 73;
     if (x === 36 && y === 8) return 73;
+    // Picnic table
+    if (x === 35 && y === 4) return 86;
+    // Swing set
+    if (x === 17 && y === 8) return 87;
+    // Small pavilion
+    if (x === 33 && y === 8) return 88;
     // Flowers scattered
     if (x === 17 && y === 4) return 75;
     if (x === 22 && y === 8) return 75;
@@ -203,6 +212,19 @@ function getFurniture(x: number, y: number): number {
     if (x === 36 && y === 10) return 75;
     if (x === 17 && y === 9) return 75;
     if (x === 32 && y === 3) return 75;
+    // Bushes for variety
+    if (x === 19 && y === 5) return 76;
+    if (x === 34 && y === 9) return 76;
+    // Wildflowers
+    if (x === 21 && y === 4) return 78;
+    if (x === 31 && y === 4) return 78;
+    if (x === 19 && y === 10) return 78;
+  }
+
+  // ── Pond edge reeds ──
+  if (isPondEdge(x, y) && y >= 1 && y <= 12) {
+    // Add reeds on some pond edges
+    if ((x === 23 && y === 7) || (x === 31 && y === 7) || (x === 25 && y === 9) || (x === 29 && y === 9)) return 89;
   }
 
   // ── Villas (position-aware multi-tile rendering) ──
