@@ -70,6 +70,11 @@ const DIRECT_MAPPINGS: Record<string, EventCategory> = {
   startup: "system",
   shutdown: "system",
   health_check: "system",
+  session: "system",
+  thinking: "completion",
+  thinking_level_change: "system",
+  model_change: "system",
+  custom: "tool_call",
 };
 
 /**

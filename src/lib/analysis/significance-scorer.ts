@@ -2,7 +2,7 @@ import type { Json } from "../database.types";
 import type { ClassificationResult, SignificanceScore } from "./types";
 
 /** Threshold above which an event should generate a moment */
-const MOMENT_THRESHOLD = 60;
+const MOMENT_THRESHOLD = 40;
 
 /** Base scores by event category */
 const CATEGORY_BASE_SCORES: Record<string, number> = {

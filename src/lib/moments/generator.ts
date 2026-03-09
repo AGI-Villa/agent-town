@@ -15,7 +15,7 @@ interface OpenRouterMessage {
 }
 
 interface OpenRouterChoice {
-  message: { content: string };
+  message: { content: string | null; reasoning?: string };
 }
 
 interface OpenRouterResponse {
@@ -83,8 +83,7 @@ async function callOpenRouter(
       model: DEFAULT_MODEL,
       messages,
       temperature: 0.8,
-      max_tokens: 500,
-      response_format: { type: "json_object" },
+      max_tokens: 2000,
     }),
   });
 
@@ -94,12 +93,14 @@ async function callOpenRouter(
   }
 
   const data = (await res.json()) as OpenRouterResponse;
+  const msg = data.choices?.[0]?.message;
+  const content = msg?.content || msg?.reasoning || null;
 
-  if (!data.choices?.[0]?.message?.content) {
+  if (!content) {
     throw new Error("Empty response from OpenRouter API");
   }
 
-  return data.choices[0].message.content;
+  return content;
 }
 
 const VALID_EMOTIONS = new Set([
@@ -113,8 +114,21 @@ const VALID_EMOTIONS = new Set([
   "surprised",
 ]);
 
+function extractJSON(raw: string): string {
+  let s = raw.trim();
+  const fenceMatch = s.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+  if (fenceMatch) s = fenceMatch[1].trim();
+  const firstBrace = s.indexOf('{');
+  const firstBracket = s.indexOf('[');
+  if (firstBrace >= 0 || firstBracket >= 0) {
+    const start = firstBrace >= 0 && (firstBracket < 0 || firstBrace < firstBracket) ? firstBrace : firstBracket;
+    s = s.slice(start);
+  }
+  return s;
+}
+
 function parseSingleResponse(raw: string): GeneratedMoment {
-  const parsed = JSON.parse(raw) as Record<string, unknown>;
+  const parsed = JSON.parse(extractJSON(raw)) as Record<string, unknown>;
 
   const content = typeof parsed.content === "string" ? parsed.content.trim() : "";
   const emotion =
@@ -130,7 +144,7 @@ function parseSingleResponse(raw: string): GeneratedMoment {
 }
 
 function parseBatchResponse(raw: string, expectedCount: number): GeneratedMoment[] {
-  let parsed: unknown = JSON.parse(raw);
+  let parsed: unknown = JSON.parse(extractJSON(raw));
 
   // Handle wrapper object like { "moments": [...] }
   if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
