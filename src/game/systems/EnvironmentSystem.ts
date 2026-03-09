@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { PICO8_COLORS } from '../tiles/palette';
 
-export type WeatherType = 'sunny' | 'rain' | 'snow';
+export type WeatherType = 'sunny' | 'cloudy' | 'rain' | 'snow';
 export type HolidayType = 'none' | 'chinese_new_year' | 'christmas';
 
 export interface EnvironmentConfig {
@@ -15,6 +15,8 @@ const DEFAULT_CONFIG: EnvironmentConfig = {
   holiday: 'none',
   particleCount: 100,
 };
+
+type WeatherChangeCallback = (weather: WeatherType) => void;
 
 interface Particle {
   x: number;
@@ -39,6 +41,7 @@ export class EnvironmentSystem {
   private particles: Particle[] = [];
   private decorations: Decoration[] = [];
   private weatherOverlay?: Phaser.GameObjects.Graphics;
+  private weatherListeners: Set<WeatherChangeCallback> = new Set();
 
   constructor(
     scene: Phaser.Scene,
@@ -66,6 +69,16 @@ export class EnvironmentSystem {
     this.clearParticles();
     this.config.weather = weather;
     this.applyWeather(weather);
+    this.notifyWeatherChange(weather);
+  }
+
+  onWeatherChange(callback: WeatherChangeCallback): () => void {
+    this.weatherListeners.add(callback);
+    return () => this.weatherListeners.delete(callback);
+  }
+
+  private notifyWeatherChange(weather: WeatherType): void {
+    this.weatherListeners.forEach(cb => cb(weather));
   }
 
   setHoliday(holiday: HolidayType): void {
@@ -79,6 +92,11 @@ export class EnvironmentSystem {
     this.weatherOverlay.clear();
 
     switch (weather) {
+      case 'cloudy':
+        // Slight darkening for cloudy weather
+        this.weatherOverlay.fillStyle(0x1d2b53, 0.15);
+        this.weatherOverlay.fillRect(0, 0, this.scene.cameras.main.width, this.scene.cameras.main.height);
+        break;
       case 'rain':
         // Darken the scene slightly
         this.weatherOverlay.fillStyle(0x1d2b53, 0.2);
@@ -360,5 +378,6 @@ export class EnvironmentSystem {
     if (this.weatherOverlay) {
       this.weatherOverlay.destroy();
     }
+    this.weatherListeners.clear();
   }
 }

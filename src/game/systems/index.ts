@@ -6,3 +6,10 @@ export { PerformanceManager, type PerformanceConfig } from './PerformanceManager
 export { TouchInputManager, type TouchInputConfig } from './TouchInputManager';
 export { EnvironmentSystem, type WeatherType, type HolidayType, type EnvironmentConfig } from './EnvironmentSystem';
 export { MeetingSystem } from './MeetingSystem';
+export {
+  generateRandomWeather,
+  fetchRealWeather,
+  getWeatherIcon,
+  type WeatherCondition,
+  type WeatherState,
+} from './WeatherService';
