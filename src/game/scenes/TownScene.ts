@@ -346,8 +346,8 @@ export class TownScene extends Phaser.Scene {
     const screenY = (agent.y - this.cameras.main.scrollY) * this.cameras.main.zoom;
     
     // Panel dimensions
-    const panelWidth = 140;
-    const panelHeight = 80;
+    const panelWidth = 160;
+    const panelHeight = 100;
     
     // Position panel above agent, clamped to screen
     let panelX = screenX - panelWidth / 2;
@@ -366,50 +366,55 @@ export class TownScene extends Phaser.Scene {
     bg.strokeRoundedRect(0, 0, panelWidth, panelHeight, 6);
     this.detailPanel.add(bg);
     
-    // Agent name
+    // Agent name - larger font with higher resolution
     const shortName = agentId.replace(/-/g, ' ').slice(0, 15);
-    const nameText = this.add.text(panelWidth / 2, 8, shortName, {
-      fontSize: '8px',
+    const nameText = this.add.text(panelWidth / 2, 10, shortName, {
+      fontSize: '10px',
       fontFamily: '"Press Start 2P", monospace',
       color: '#ffffff',
+      resolution: 2,
     });
     nameText.setOrigin(0.5, 0);
     this.detailPanel.add(nameText);
     
-    // Status with color indicator
+    // Status with color indicator - larger font
     const statusColor = data.status === 'online' ? '#44ff44' : data.status === 'idle' ? '#ffaa44' : '#888888';
-    const statusText = this.add.text(10, 24, `● ${data.status.toUpperCase()}`, {
-      fontSize: '7px',
+    const statusText = this.add.text(12, 30, `● ${data.status.toUpperCase()}`, {
+      fontSize: '9px',
       fontFamily: '"Press Start 2P", monospace',
       color: statusColor,
+      resolution: 2,
     });
     this.detailPanel.add(statusText);
     
-    // Activity
+    // Activity - larger font with better contrast
     const activity = agent.getActivity();
-    const activityText = this.add.text(10, 38, `Activity: ${activity}`, {
-      fontSize: '6px',
-      fontFamily: 'monospace',
-      color: '#cccccc',
+    const activityText = this.add.text(12, 48, `Activity: ${activity}`, {
+      fontSize: '8px',
+      fontFamily: '"Press Start 2P", monospace',
+      color: '#e0e0e0',
+      resolution: 2,
     });
     this.detailPanel.add(activityText);
     
-    // Location
+    // Location - larger font
     const location = agent.getLocation();
-    const locationText = this.add.text(10, 52, `Location: ${location}`, {
-      fontSize: '6px',
-      fontFamily: 'monospace',
-      color: '#cccccc',
+    const locationText = this.add.text(12, 64, `Location: ${location}`, {
+      fontSize: '8px',
+      fontFamily: '"Press Start 2P", monospace',
+      color: '#e0e0e0',
+      resolution: 2,
     });
     this.detailPanel.add(locationText);
     
-    // Mood
+    // Mood - larger font
     const mood = agent.getMood();
     const moodEmoji = mood === 'happy' ? '😊' : mood === 'focused' ? '🎯' : mood === 'tired' ? '😴' : '😐';
-    const moodText = this.add.text(10, 66, `Mood: ${moodEmoji} ${mood}`, {
-      fontSize: '6px',
-      fontFamily: 'monospace',
-      color: '#cccccc',
+    const moodText = this.add.text(12, 80, `Mood: ${moodEmoji} ${mood}`, {
+      fontSize: '8px',
+      fontFamily: '"Press Start 2P", monospace',
+      color: '#e0e0e0',
+      resolution: 2,
     });
     this.detailPanel.add(moodText);
     
