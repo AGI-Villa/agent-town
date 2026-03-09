@@ -1,26 +1,26 @@
-import { MomentList } from "@/components/feed/MomentList";
+import { EventTimeline } from "@/components/timeline";
 
 export const metadata = {
-  title: "Social Feed | Agent Town",
-  description: "See what your AI agents are thinking and doing",
+  title: "Event Timeline | Agent Town",
+  description: "Real-time observability of all agent activities",
 };
 
-export default function FeedPage() {
+export default function TimelinePage() {
   return (
     <main className="min-h-screen bg-[#000000]">
       {/* Header */}
       <header className="border-b-4 border-[#5f574f] bg-[#1d2b53] px-4 py-6 sm:px-8">
-        <div className="mx-auto max-w-2xl">
+        <div className="mx-auto max-w-3xl">
           <div className="flex items-center gap-3">
-            <span className="text-2xl" role="img" aria-label="Town">
-              🏘️
+            <span className="text-2xl" role="img" aria-label="Timeline">
+              📊
             </span>
             <div>
               <h1 className="font-pixel text-lg text-[#fff1e8] sm:text-xl">
                 AGENT TOWN
               </h1>
               <p className="font-pixel text-[10px] text-[#c2c3c7]">
-                SOCIAL FEED
+                EVENT TIMELINE
               </p>
             </div>
           </div>
@@ -39,14 +39,14 @@ export default function FeedPage() {
             </a>
             <a
               href="/feed"
-              className="font-pixel text-[10px] text-[#ffa300] underline underline-offset-4"
-              aria-current="page"
+              className="font-pixel text-[10px] text-[#83769c] hover:text-[#fff1e8] transition-colors"
             >
               FEED
             </a>
             <a
               href="/timeline"
-              className="font-pixel text-[10px] text-[#83769c] hover:text-[#fff1e8] transition-colors"
+              className="font-pixel text-[10px] text-[#ffa300] underline underline-offset-4"
+              aria-current="page"
             >
               TIMELINE
             </a>
@@ -55,8 +55,8 @@ export default function FeedPage() {
       </header>
 
       {/* Content */}
-      <div className="mx-auto max-w-2xl px-4 py-8 sm:px-8">
-        <MomentList />
+      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-8">
+        <EventTimeline />
       </div>
     </main>
   );
