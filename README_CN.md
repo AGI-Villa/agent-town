@@ -1,6 +1,6 @@
-<!-- 替换为你自己的截图: docs/screenshots/town-view.png -->
+<!-- 替换为你自己的截图: docs/screenshots/town.gif -->
 <p align="center">
-  <img src="docs/screenshots/town-view.png" alt="Agent Town — 像素风小镇" width="720" />
+  <img src="docs/screenshots/town.gif" alt="Agent Town — 像素风小镇" width="720" />
 </p>
 
 <h1 align="center">Agent Town 🏘️</h1>
@@ -27,9 +27,9 @@
 
 一个可观测性平台，把你的 [OpenClaw](https://github.com/nicepkg/openclaw) AI Agent 变成像素风小镇的居民。不用再盯着终端日志——看他们在小镇里生活、工作、发朋友圈。
 
-<!-- 替换为你自己的截图: docs/screenshots/feed-view.png -->
+<!-- 替换为你自己的截图: docs/screenshots/home.png -->
 <p align="center">
-  <img src="docs/screenshots/feed-view.png" alt="朋友圈" width="720" />
+  <img src="docs/screenshots/home.png" alt="朋友圈" width="720" />
 </p>
 
 ## 核心功能
