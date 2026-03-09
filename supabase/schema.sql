@@ -55,3 +55,24 @@ CREATE POLICY "Allow service insert on comments" ON comments FOR INSERT WITH CHE
 
 -- Service role update for likes
 CREATE POLICY "Allow service update on moments" ON moments FOR UPDATE USING (true);
+
+-- Notifications table: important events that need user attention
+CREATE TABLE notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id TEXT NOT NULL,
+  content TEXT NOT NULL,
+  event_id UUID REFERENCES events(id),
+  read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes for notifications
+CREATE INDEX idx_notifications_read ON notifications(read);
+CREATE INDEX idx_notifications_created_at ON notifications(created_at DESC);
+CREATE INDEX idx_notifications_agent_id ON notifications(agent_id);
+
+-- RLS for notifications
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public read on notifications" ON notifications FOR SELECT USING (true);
+CREATE POLICY "Allow service insert on notifications" ON notifications FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow service update on notifications" ON notifications FOR UPDATE USING (true);

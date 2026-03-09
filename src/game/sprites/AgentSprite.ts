@@ -44,6 +44,8 @@ export class AgentSprite extends Phaser.GameObjects.Container {
   private nameLabel: Phaser.GameObjects.Text | null = null;
   private statusIcon: Phaser.GameObjects.Text | null = null;
   private workStatus: AgentWorkStatus = 'idle';
+  private notificationIndicator: Phaser.GameObjects.Text | null = null;
+  private notificationTween: Phaser.Tweens.Tween | null = null;
   
   // Idle wandering state
   private isWandering = false;
@@ -643,6 +645,52 @@ export class AgentSprite extends Phaser.GameObjects.Container {
   // Clean up on destroy
   destroy(fromScene?: boolean): void {
     this.stopWandering();
+    this.hideNotificationIndicator();
     super.destroy(fromScene);
+  }
+
+  /**
+   * Show a notification indicator above the agent's head.
+   * @param type 'success' shows ✅, 'alert' shows ❗
+   * @param durationMs How long to show the indicator (default 3000ms)
+   */
+  showNotificationIndicator(type: 'success' | 'alert', durationMs = 3000): void {
+    this.hideNotificationIndicator();
+
+    const emoji = type === 'success' ? '✅' : '❗';
+    this.notificationIndicator = this.scene.add.text(0, -SPRITE_CONFIG.frameHeight * 1.5 - 40, emoji, {
+      fontSize: '20px',
+      fontFamily: 'Arial, sans-serif',
+      resolution: 2,
+    });
+    this.notificationIndicator.setOrigin(0.5, 1);
+    this.add(this.notificationIndicator);
+
+    // Bounce animation
+    this.notificationTween = this.scene.tweens.add({
+      targets: this.notificationIndicator,
+      y: this.notificationIndicator.y - 6,
+      duration: 400,
+      yoyo: true,
+      repeat: Math.floor(durationMs / 800) - 1,
+      ease: 'Sine.easeInOut',
+      onComplete: () => {
+        this.hideNotificationIndicator();
+      },
+    });
+  }
+
+  /**
+   * Hide the notification indicator if visible.
+   */
+  hideNotificationIndicator(): void {
+    if (this.notificationTween) {
+      this.notificationTween.stop();
+      this.notificationTween = null;
+    }
+    if (this.notificationIndicator) {
+      this.notificationIndicator.destroy();
+      this.notificationIndicator = null;
+    }
   }
 }
