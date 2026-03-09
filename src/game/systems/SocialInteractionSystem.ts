@@ -29,6 +29,14 @@ interface ActiveInteraction {
   dialogues: string[];
   currentDialogueIndex: number;
   bubbles: Phaser.GameObjects.Container[];
+  areaKey?: string;
+}
+
+// Bubble queue system: limit bubbles per area
+interface BubbleQueueEntry {
+  interactionKey: string;
+  areaKey: string;
+  priority: number;
 }
 
 interface LikeEffect {
@@ -43,6 +51,7 @@ export interface SocialInteractionConfig {
   dialogueDuration: number;     // Ms per dialogue bubble
   pollInterval: number;         // Ms between API polls
   maxDialogues: number;         // Max dialogues per interaction
+  maxBubblesPerArea: number;    // Max simultaneous bubbles per area
 }
 
 const DEFAULT_CONFIG: SocialInteractionConfig = {
@@ -50,6 +59,7 @@ const DEFAULT_CONFIG: SocialInteractionConfig = {
   dialogueDuration: 3000,
   pollInterval: 10000,
   maxDialogues: 4,
+  maxBubblesPerArea: 3,
 };
 
 export class SocialInteractionSystem {
@@ -62,10 +72,44 @@ export class SocialInteractionSystem {
   private pollTimer: number | null = null;
   private lastLikeCount: Map<string, number> = new Map();
   private agentInInteraction: Set<string> = new Set();
+  private bubbleQueue: BubbleQueueEntry[] = [];
+  private activeBubblesPerArea: Map<string, number> = new Map();
 
   constructor(scene: Phaser.Scene, config: Partial<SocialInteractionConfig> = {}) {
     this.scene = scene;
     this.config = { ...DEFAULT_CONFIG, ...config };
+  }
+
+  // Determine area key from pixel position
+  private getAreaFromPosition(x: number, y: number): string {
+    const tileX = Math.floor(x / TILE_SIZE);
+    const tileY = Math.floor(y / TILE_SIZE);
+    // Simple area detection based on tile coordinates
+    if (tileX >= 2 && tileX <= 13 && tileY >= 15 && tileY <= 24) return 'office';
+    if (tileX >= 15 && tileX <= 38 && tileY >= 1 && tileY <= 12) return 'park';
+    if (tileX >= 16 && tileX <= 23 && tileY >= 15 && tileY <= 22) return 'plaza';
+    if (tileX >= 28 && tileX <= 37 && tileY >= 15 && tileY <= 23) return 'coffeeShop';
+    if (tileX >= 41 && tileX <= 50 && tileY >= 15 && tileY <= 23) return 'store';
+    if (tileX >= 4 && tileX <= 51 && tileY >= 27 && tileY <= 34) return 'residential';
+    return 'outdoor';
+  }
+
+  // Check if area can accept more bubbles
+  private canShowBubbleInArea(areaKey: string): boolean {
+    const count = this.activeBubblesPerArea.get(areaKey) ?? 0;
+    return count < this.config.maxBubblesPerArea;
+  }
+
+  // Increment bubble count for area
+  private incrementAreaBubbles(areaKey: string): void {
+    const count = this.activeBubblesPerArea.get(areaKey) ?? 0;
+    this.activeBubblesPerArea.set(areaKey, count + 1);
+  }
+
+  // Decrement bubble count for area
+  private decrementAreaBubbles(areaKey: string): void {
+    const count = this.activeBubblesPerArea.get(areaKey) ?? 0;
+    this.activeBubblesPerArea.set(areaKey, Math.max(0, count - 1));
   }
 
   start(): void {
@@ -161,6 +205,7 @@ export class SocialInteractionSystem {
     sprite2: AgentSprite
   ): void {
     const key = this.getInteractionKey(id1, id2);
+    const areaKey = this.getAreaFromPosition(sprite1.x, sprite1.y);
     
     // Get dialogues from moments and comments
     const dialogues = this.getDialoguesForAgents(id1, id2);
@@ -190,12 +235,25 @@ export class SocialInteractionSystem {
       dialogues,
       currentDialogueIndex: 0,
       bubbles: [],
+      areaKey,
     };
 
     this.activeInteractions.set(key, interaction);
     this.agentInInteraction.add(id1);
     this.agentInInteraction.add(id2);
-    this.showDialogueBubble(interaction, sprite1, sprite2);
+    
+    // Check if we can show bubble immediately or need to queue
+    if (this.canShowBubbleInArea(areaKey)) {
+      this.incrementAreaBubbles(areaKey);
+      this.showDialogueBubble(interaction, sprite1, sprite2);
+    } else {
+      // Add to queue with priority based on start time
+      this.bubbleQueue.push({
+        interactionKey: key,
+        areaKey,
+        priority: Date.now(),
+      });
+    }
   }
 
   private getDialoguesForAgents(id1: string, id2: string): string[] {
@@ -352,8 +410,34 @@ export class SocialInteractionSystem {
     if (interaction) {
       this.agentInInteraction.delete(interaction.agents[0]);
       this.agentInInteraction.delete(interaction.agents[1]);
+      
+      // Decrement area bubble count if this interaction had active bubbles
+      if (interaction.areaKey && interaction.bubbles.length > 0) {
+        this.decrementAreaBubbles(interaction.areaKey);
+        // Process queue for this area
+        this.processQueueForArea(interaction.areaKey);
+      }
     }
     this.activeInteractions.delete(key);
+  }
+
+  // Process queued interactions for a specific area
+  private processQueueForArea(areaKey: string): void {
+    const queuedIndex = this.bubbleQueue.findIndex(q => q.areaKey === areaKey);
+    if (queuedIndex === -1) return;
+    
+    if (!this.canShowBubbleInArea(areaKey)) return;
+    
+    const queued = this.bubbleQueue.splice(queuedIndex, 1)[0];
+    const interaction = this.activeInteractions.get(queued.interactionKey);
+    if (!interaction) return;
+    
+    const sprite1 = this.agents.get(interaction.agents[0]);
+    const sprite2 = this.agents.get(interaction.agents[1]);
+    if (!sprite1 || !sprite2) return;
+    
+    this.incrementAreaBubbles(areaKey);
+    this.showDialogueBubble(interaction, sprite1, sprite2);
   }
 
   private updateInteractions(): void {

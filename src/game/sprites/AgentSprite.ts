@@ -40,6 +40,17 @@ export class AgentSprite extends Phaser.GameObjects.Container {
   private currentState: AnimationState = 'idle_down';
   private statusIndicator?: Phaser.GameObjects.Graphics;
   private nameLabel: Phaser.GameObjects.Text | null = null;
+  
+  // Idle wandering state
+  private isWandering = false;
+  private wanderTimer: Phaser.Time.TimerEvent | null = null;
+  private wanderBounds: { x: number; y: number; width: number; height: number } | null = null;
+  private originalPosition: { x: number; y: number } | null = null;
+  
+  // Activity state for detail panel
+  private currentActivity = 'idle';
+  private currentMood = 'neutral';
+  private currentLocation = 'unknown';
 
   constructor(
     scene: Phaser.Scene,
@@ -431,5 +442,134 @@ export class AgentSprite extends Phaser.GameObjects.Container {
   getCurrentState(): AnimationState {
     return this.currentState;
   }
-}
 
+  // Face towards a specific point (for facing desks/workstations)
+  faceTowards(targetX: number, targetY: number): void {
+    const dx = targetX - this.x;
+    const dy = targetY - this.y;
+    
+    // Determine primary direction based on larger delta
+    if (Math.abs(dx) > Math.abs(dy)) {
+      this.setDirection(dx > 0 ? 'right' : 'left');
+    } else {
+      this.setDirection(dy > 0 ? 'down' : 'up');
+    }
+    this.idle();
+  }
+
+  // Set wander bounds for idle animation
+  setWanderBounds(bounds: { x: number; y: number; width: number; height: number }): void {
+    this.wanderBounds = bounds;
+    this.originalPosition = { x: this.x, y: this.y };
+  }
+
+  // Start idle wandering animation
+  startWandering(): void {
+    if (this.isWandering || !this.wanderBounds) return;
+    this.isWandering = true;
+    this.scheduleNextWander();
+  }
+
+  // Stop idle wandering
+  stopWandering(): void {
+    this.isWandering = false;
+    if (this.wanderTimer) {
+      this.wanderTimer.destroy();
+      this.wanderTimer = null;
+    }
+  }
+
+  private scheduleNextWander(): void {
+    if (!this.isWandering) return;
+    
+    // Random delay between 2-5 seconds
+    const delay = 2000 + Math.random() * 3000;
+    
+    this.wanderTimer = this.scene.time.delayedCall(delay, () => {
+      if (!this.isWandering || !this.wanderBounds) return;
+      this.performWander();
+    });
+  }
+
+  private performWander(): void {
+    if (!this.wanderBounds || !this.originalPosition) return;
+    
+    // Calculate random target within bounds (small movement)
+    const maxOffset = 32; // 1 tile
+    const targetX = this.originalPosition.x + (Math.random() - 0.5) * maxOffset * 2;
+    const targetY = this.originalPosition.y + (Math.random() - 0.5) * maxOffset * 2;
+    
+    // Clamp to bounds
+    const clampedX = Math.max(
+      this.wanderBounds.x,
+      Math.min(this.wanderBounds.x + this.wanderBounds.width, targetX)
+    );
+    const clampedY = Math.max(
+      this.wanderBounds.y,
+      Math.min(this.wanderBounds.y + this.wanderBounds.height, targetY)
+    );
+    
+    // Determine direction and walk
+    const dx = clampedX - this.x;
+    const dy = clampedY - this.y;
+    
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+      // Walk towards target
+      if (Math.abs(dx) > Math.abs(dy)) {
+        this.walk(dx > 0 ? 'right' : 'left');
+      } else {
+        this.walk(dy > 0 ? 'down' : 'up');
+      }
+      
+      // Tween to target position
+      this.scene.tweens.add({
+        targets: this,
+        x: clampedX,
+        y: clampedY,
+        duration: 800,
+        ease: 'Linear',
+        onComplete: () => {
+          this.idle();
+          this.scheduleNextWander();
+        },
+      });
+    } else {
+      // Just change facing direction randomly
+      const directions: Direction[] = ['up', 'down', 'left', 'right'];
+      this.setDirection(directions[Math.floor(Math.random() * 4)]);
+      this.idle();
+      this.scheduleNextWander();
+    }
+  }
+
+  // Activity state management for detail panel
+  setActivity(activity: string): void {
+    this.currentActivity = activity;
+  }
+
+  setMood(mood: string): void {
+    this.currentMood = mood;
+  }
+
+  setLocation(location: string): void {
+    this.currentLocation = location;
+  }
+
+  getActivity(): string {
+    return this.currentActivity;
+  }
+
+  getMood(): string {
+    return this.currentMood;
+  }
+
+  getLocation(): string {
+    return this.currentLocation;
+  }
+
+  // Clean up on destroy
+  destroy(fromScene?: boolean): void {
+    this.stopWandering();
+    super.destroy(fromScene);
+  }
+}
