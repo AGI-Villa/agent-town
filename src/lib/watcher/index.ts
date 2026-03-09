@@ -164,13 +164,5 @@ class WatcherService {
   }
 }
 
-// Singleton instance
+// Singleton instance — started via src/instrumentation.ts on server boot
 export const watcherService = new WatcherService();
-
-// Auto-start when this module is first loaded in the server process.
-// Only runs on the server (Node.js), not during SSR/client builds.
-if (typeof window === "undefined") {
-  watcherService.start().catch((err) => {
-    console.error("[watcher] Auto-start failed:", err);
-  });
-}
