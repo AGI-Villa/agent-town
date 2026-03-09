@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { NotificationBell } from '@/components/notifications';
+import { MusicControl } from '@/components/audio';
 
 const TownCanvas = dynamic(
   () => import('@/components/game/TownCanvas'),
@@ -39,6 +40,11 @@ export default function TownPage() {
             <p className="font-pixel text-[8px] text-[#83769c]">
               SCROLL TO ZOOM &bull; DRAG TO PAN &bull; KEYS 1-6 NAVIGATE AREAS &bull; KEY 0 FIT MAP &bull; CLICK AGENT FOR DETAILS
             </p>
+          </div>
+
+          {/* Music control - bottom left */}
+          <div className="absolute bottom-3 left-3 z-50">
+            <MusicControl />
           </div>
         </>
       )}
