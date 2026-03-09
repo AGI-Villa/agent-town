@@ -29,6 +29,8 @@ function getStatusColor(status: string): string {
       return '#00e436';
     case 'idle':
       return '#ffec27';
+    case 'error':
+      return '#ff004d';
     default:
       return '#83769c';
   }
@@ -36,6 +38,19 @@ function getStatusColor(status: string): string {
 
 function getStatusLabel(status: string): string {
   return status.toUpperCase();
+}
+
+function getStatusEmoji(status: string): string {
+  switch (status) {
+    case 'online':
+      return '💻';
+    case 'idle':
+      return '☕';
+    case 'error':
+      return '🔥';
+    default:
+      return '💤';
+  }
 }
 
 export function AgentDetailModal({ agent, onClose }: AgentDetailModalProps) {
@@ -94,19 +109,30 @@ export function AgentDetailModal({ agent, onClose }: AgentDetailModalProps) {
 
           {/* Content */}
           <div className="p-4 space-y-4">
-            {/* Status */}
+            {/* Status with emoji */}
             <div className="flex items-center gap-3">
-              <span className="font-pixel text-[10px] text-[#c2c3c7]">STATUS:</span>
-              <span
-                className="font-pixel text-xs"
-                style={{ color: getStatusColor(agent.status) }}
-              >
-                {getStatusLabel(agent.status)}
+              <span className="text-xl">{getStatusEmoji(agent.status)}</span>
+              <div className="flex items-center gap-2">
+                <span className="font-pixel text-[10px] text-[#c2c3c7]">STATUS:</span>
+                <span
+                  className="font-pixel text-xs"
+                  style={{ color: getStatusColor(agent.status) }}
+                >
+                  {getStatusLabel(agent.status)}
+                </span>
+                <span
+                  className="w-2 h-2 rounded-full animate-pulse"
+                  style={{ backgroundColor: getStatusColor(agent.status) }}
+                />
+              </div>
+            </div>
+
+            {/* Current Activity */}
+            <div className="flex items-center gap-3">
+              <span className="font-pixel text-[10px] text-[#c2c3c7]">DOING:</span>
+              <span className="font-pixel text-xs text-[#fff1e8]">
+                {agent.status === 'online' ? 'Working on tasks' : agent.status === 'idle' ? 'Taking a break' : 'Offline'}
               </span>
-              <span
-                className="w-2 h-2 rounded-full animate-pulse"
-                style={{ backgroundColor: getStatusColor(agent.status) }}
-              />
             </div>
 
             {/* Last Activity */}
@@ -127,16 +153,25 @@ export function AgentDetailModal({ agent, onClose }: AgentDetailModalProps) {
               </div>
             )}
 
-            {/* 24h Event Count */}
-            <div className="flex items-center gap-3">
-              <span className="font-pixel text-[10px] text-[#c2c3c7]">24H EVENTS:</span>
-              <span className="font-pixel text-xs text-[#29adff]">
-                {agent.event_count_24h}
-              </span>
+            {/* 24h Stats */}
+            <div className="mt-4 p-3 bg-[#000000]/50 border border-[#5f574f]">
+              <div className="font-pixel text-[10px] text-[#c2c3c7] mb-2">24H STATISTICS</div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <span className="font-pixel text-[8px] text-[#83769c]">EVENTS</span>
+                  <div className="font-pixel text-sm text-[#29adff]">{agent.event_count_24h}</div>
+                </div>
+                <div>
+                  <span className="font-pixel text-[8px] text-[#83769c]">UPTIME</span>
+                  <div className="font-pixel text-sm text-[#00e436]">
+                    {agent.status === 'online' ? '~Active' : '~Idle'}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Activity Bar */}
-            <div className="mt-4">
+            <div className="mt-2">
               <div className="font-pixel text-[10px] text-[#c2c3c7] mb-2">ACTIVITY LEVEL</div>
               <div className="h-3 bg-[#000000] border border-[#5f574f]">
                 <div

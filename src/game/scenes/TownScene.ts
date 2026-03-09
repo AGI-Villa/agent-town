@@ -590,6 +590,7 @@ export class TownScene extends Phaser.Scene {
         agent.setAlpha(1);
         agent.setActivity('working');
         agent.setMood('focused');
+        agent.setWorkStatus('working');
         agent.stopWandering();
         break;
       case 'idle':
@@ -598,13 +599,24 @@ export class TownScene extends Phaser.Scene {
         agent.setAlpha(1);
         agent.setActivity('resting');
         agent.setMood('neutral');
+        agent.setWorkStatus('idle');
         agent.startWandering(); // Start idle wandering
+        break;
+      case 'error':
+        agent.error();
+        agent.setVisible(true);
+        agent.setAlpha(1);
+        agent.setActivity('error');
+        agent.setMood('frustrated');
+        agent.setWorkStatus('error');
+        agent.stopWandering();
         break;
       default:
         agent.idle();
         agent.setAlpha(0.6);
         agent.setActivity('offline');
         agent.setMood('neutral');
+        agent.setWorkStatus('idle');
         agent.stopWandering();
     }
   }
