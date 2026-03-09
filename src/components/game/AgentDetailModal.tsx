@@ -23,6 +23,12 @@ function formatTimeAgo(dateStr: string | null): string {
   return date.toLocaleDateString();
 }
 
+function formatTaskTime(dateStr: string | null): string {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
 function getStatusColor(status: string): string {
   switch (status) {
     case 'online':
@@ -131,9 +137,19 @@ export function AgentDetailModal({ agent, onClose }: AgentDetailModalProps) {
             <div className="flex items-center gap-3">
               <span className="font-pixel text-[10px] text-[#c2c3c7]">DOING:</span>
               <span className="font-pixel text-xs text-[#fff1e8]">
-                {agent.status === 'online' ? 'Working on tasks' : agent.status === 'idle' ? 'Taking a break' : 'Offline'}
+                {agent.current_task?.description || (agent.status === 'online' ? 'Working on tasks' : agent.status === 'idle' ? 'Taking a break' : 'Offline')}
               </span>
             </div>
+
+            {/* Task Start Time */}
+            {agent.current_task?.started_at && (
+              <div className="flex items-center gap-3">
+                <span className="font-pixel text-[10px] text-[#c2c3c7]">STARTED:</span>
+                <span className="font-pixel text-xs text-[#29adff]">
+                  {formatTaskTime(agent.current_task.started_at)}
+                </span>
+              </div>
+            )}
 
             {/* Last Activity */}
             <div className="flex items-center gap-3">

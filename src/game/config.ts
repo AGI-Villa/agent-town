@@ -8,7 +8,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   height: 600,
   pixelArt: true,
   roundPixels: true,
-  backgroundColor: '#1a1a2e',
+  backgroundColor: '#4a7c59', // Grass green to match map edges
   parent: 'game-container',
   scene: [OfficeScene, TownScene],
   physics: {
@@ -19,7 +19,15 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
     },
   },
   scale: {
-    mode: Phaser.Scale.FIT,
+    mode: Phaser.Scale.RESIZE,
     autoCenter: Phaser.Scale.CENTER_BOTH,
+    min: {
+      width: 400,
+      height: 300,
+    },
+    max: {
+      width: 1920,
+      height: 1080,
+    },
   },
 };

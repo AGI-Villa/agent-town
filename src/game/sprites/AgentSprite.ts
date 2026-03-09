@@ -78,17 +78,18 @@ export class AgentSprite extends Phaser.GameObjects.Container {
     // Create sprite
     this.sprite = scene.add.sprite(0, 0, this.textureKey, 0);
     this.sprite.setOrigin(0.5, 1); // Bottom center origin for proper positioning
+    this.sprite.setScale(1.5); // Increase sprite size for better visibility
     this.add(this.sprite);
 
     // Create status indicator (for think/error bubbles)
     this.statusIndicator = scene.add.graphics();
-    this.statusIndicator.setPosition(0, -SPRITE_CONFIG.frameHeight - 4);
+    this.statusIndicator.setPosition(0, -SPRITE_CONFIG.frameHeight * 1.5 - 4);
     this.add(this.statusIndicator);
 
     // Name label above head - higher resolution for clarity
     const shortName = agentId.replace(/-/g, '').toUpperCase().slice(0, 5);
-    this.nameLabel = scene.add.text(0, -SPRITE_CONFIG.frameHeight - 10, shortName, {
-      fontSize: '8px',
+    this.nameLabel = scene.add.text(0, -SPRITE_CONFIG.frameHeight * 1.5 - 10, shortName, {
+      fontSize: '10px',
       fontFamily: '"Press Start 2P", monospace',
       color: '#ffffff',
       stroke: '#000000',
@@ -99,8 +100,8 @@ export class AgentSprite extends Phaser.GameObjects.Container {
     this.add(this.nameLabel);
 
     // Status icon above name (emoji-based) - higher resolution
-    this.statusIcon = scene.add.text(0, -SPRITE_CONFIG.frameHeight - 22, '☕', {
-      fontSize: '14px',
+    this.statusIcon = scene.add.text(0, -SPRITE_CONFIG.frameHeight * 1.5 - 26, '☕', {
+      fontSize: '18px',
       fontFamily: 'Arial, sans-serif',
       resolution: 2,
     });
@@ -635,7 +636,7 @@ export class AgentSprite extends Phaser.GameObjects.Container {
       });
     } else {
       this.scene.tweens.killTweensOf(this.statusIcon);
-      this.statusIcon.setY(-SPRITE_CONFIG.frameHeight - 22);
+      this.statusIcon.setY(-SPRITE_CONFIG.frameHeight * 1.5 - 26);
     }
   }
 
