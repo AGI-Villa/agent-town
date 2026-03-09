@@ -1,5 +1,4 @@
 import Phaser from 'phaser';
-import { OfficeScene } from './scenes/OfficeScene';
 import { TownScene } from './scenes/TownScene';
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
@@ -8,9 +7,9 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   height: 600,
   pixelArt: true,
   roundPixels: true,
-  backgroundColor: '#4a7c59', // Grass green to match map edges
+  backgroundColor: '#4a7c59',
   parent: 'game-container',
-  scene: [OfficeScene, TownScene],
+  scene: [TownScene],
   physics: {
     default: 'arcade',
     arcade: {

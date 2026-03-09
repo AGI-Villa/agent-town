@@ -2,7 +2,7 @@ import type { AnalysisResult } from "@/lib/analysis/types";
 import { SYSTEM_PROMPT, buildGeneratePrompt, buildBatchPrompt } from "./prompts";
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const DEFAULT_MODEL = "openai/gpt-4o-mini";
+const DEFAULT_MODEL = "stepfun/step-3.5-flash:free";
 
 export interface GeneratedMoment {
   content: string;

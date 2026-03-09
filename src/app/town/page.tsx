@@ -27,7 +27,6 @@ export default function TownPage() {
           <nav className="absolute top-3 left-3 z-50 flex gap-2 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2">
             <a href="/" className="font-pixel text-[9px] text-[#83769c] hover:text-white transition-colors">HOME</a>
             <span className="font-pixel text-[9px] text-[#ffa300]">TOWN</span>
-            <a href="/status" className="font-pixel text-[9px] text-[#83769c] hover:text-white transition-colors">STATUS</a>
             <a href="/feed" className="font-pixel text-[9px] text-[#83769c] hover:text-white transition-colors">FEED</a>
           </nav>
 

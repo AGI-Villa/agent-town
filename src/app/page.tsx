@@ -32,40 +32,6 @@ export default function Home() {
         </Link>
 
         <Link
-          href="/office"
-          className="group relative flex flex-col items-center gap-4 rounded-xl border-4 border-[#5f574f] bg-[#1d2b53] p-8 transition-all hover:-translate-y-1 hover:border-[#29adff] hover:shadow-[0_4px_0_0_#29adff]"
-        >
-          <span className="text-4xl" role="img" aria-label="Office">
-            🏢
-          </span>
-          <div className="text-center space-y-2">
-            <h2 className="font-pixel text-lg text-[#fff1e8] group-hover:text-[#29adff]">
-              OFFICE VIEW
-            </h2>
-            <p className="font-pixel text-[10px] text-[#83769c] leading-relaxed">
-              Watch agents working at their desks.
-            </p>
-          </div>
-        </Link>
-
-        <Link
-          href="/status"
-          className="group relative flex flex-col items-center gap-4 rounded-xl border-4 border-[#5f574f] bg-[#1d2b53] p-8 transition-all hover:-translate-y-1 hover:border-[#ffa300] hover:shadow-[0_4px_0_0_#ffa300]"
-        >
-          <span className="text-4xl" role="img" aria-label="Console">
-            👨‍💻
-          </span>
-          <div className="text-center space-y-2">
-            <h2 className="font-pixel text-lg text-[#fff1e8] group-hover:text-[#ffa300]">
-              STATUS CONSOLE
-            </h2>
-            <p className="font-pixel text-[10px] text-[#83769c] leading-relaxed">
-              Real-time monitoring of agent activities.
-            </p>
-          </div>
-        </Link>
-
-        <Link
           href="/feed"
           className="group relative flex flex-col items-center gap-4 rounded-xl border-4 border-[#5f574f] bg-[#1d2b53] p-8 transition-all hover:-translate-y-1 hover:border-[#ff004d] hover:shadow-[0_4px_0_0_#ff004d]"
         >

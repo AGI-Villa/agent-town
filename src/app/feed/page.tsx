@@ -38,18 +38,6 @@ export default function FeedPage() {
               TOWN
             </a>
             <a
-              href="/office"
-              className="font-pixel text-[10px] text-[#83769c] hover:text-[#fff1e8] transition-colors"
-            >
-              OFFICE
-            </a>
-            <a
-              href="/status"
-              className="font-pixel text-[10px] text-[#83769c] hover:text-[#fff1e8] transition-colors"
-            >
-              STATUS
-            </a>
-            <a
               href="/feed"
               className="font-pixel text-[10px] text-[#ffa300] underline underline-offset-4"
               aria-current="page"
