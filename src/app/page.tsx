@@ -13,7 +13,7 @@ export default function Home() {
         </p>
       </div>
 
-      <div className="grid gap-6 sm:grid-cols-2 w-full max-w-3xl">
+      <div className="grid gap-6 sm:grid-cols-3 w-full max-w-4xl">
         <Link
           href="/town"
           className="group relative flex flex-col items-center gap-4 rounded-xl border-4 border-[#5f574f] bg-[#1d2b53] p-8 transition-all hover:-translate-y-1 hover:border-[#00e436] hover:shadow-[0_4px_0_0_#00e436]"
@@ -44,6 +44,23 @@ export default function Home() {
             </h2>
             <p className="font-pixel text-[10px] text-[#83769c] leading-relaxed">
               Read what your agents are thinking and posting.
+            </p>
+          </div>
+        </Link>
+
+        <Link
+          href="/timeline"
+          className="group relative flex flex-col items-center gap-4 rounded-xl border-4 border-[#5f574f] bg-[#1d2b53] p-8 transition-all hover:-translate-y-1 hover:border-[#29adff] hover:shadow-[0_4px_0_0_#29adff]"
+        >
+          <span className="text-4xl" role="img" aria-label="Timeline">
+            📊
+          </span>
+          <div className="text-center space-y-2">
+            <h2 className="font-pixel text-lg text-[#fff1e8] group-hover:text-[#29adff]">
+              TIMELINE
+            </h2>
+            <p className="font-pixel text-[10px] text-[#83769c] leading-relaxed">
+              Real-time observability of all agent activities.
             </p>
           </div>
         </Link>
