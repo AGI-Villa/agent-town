@@ -396,6 +396,16 @@ export const TOWN_MAP = {
     officeEntrance: { x: 7, y: 14, area: 'office' },
     coffeeArea: { x: 4, y: 23, area: 'office' },
     meetingRoom: { x: 9, y: 22, area: 'office' },
+    // Meeting room seats around the meeting table (x:9-10, y:22)
+    meetingSeats: [
+      { x: 8, y: 21, id: 'meeting-seat-1', area: 'office', facing: 'right' },
+      { x: 8, y: 22, id: 'meeting-seat-2', area: 'office', facing: 'right' },
+      { x: 8, y: 23, id: 'meeting-seat-3', area: 'office', facing: 'right' },
+      { x: 11, y: 21, id: 'meeting-seat-4', area: 'office', facing: 'left' },
+      { x: 11, y: 22, id: 'meeting-seat-5', area: 'office', facing: 'left' },
+      { x: 11, y: 23, id: 'meeting-seat-6', area: 'office', facing: 'left' },
+    ],
+    meetingTableCenter: { x: 9.5, y: 22, area: 'office' },
     workstations: [
       { x: 4, y: 17, id: 'desk-1', area: 'office' },
       { x: 7, y: 17, id: 'desk-2', area: 'office' },

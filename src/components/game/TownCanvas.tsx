@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import Phaser from 'phaser';
 import type { AgentStatus } from '@/lib/types';
+import AgentListPanel from './AgentListPanel';
 
 function AgentDetailModal({ agent, onClose }: { agent: AgentStatus | null; onClose: () => void }) {
   if (!agent) return null;
@@ -126,6 +127,16 @@ export default function TownCanvas({ initialArea }: TownCanvasProps) {
     return () => { cleanup.then((fn) => fn?.()); };
   }, [handleAgentClick]);
 
+  const handleAgentSelect = useCallback((agentId: string) => {
+    // Focus on agent in the game scene
+    const scene = gameRef.current?.scene.getScene('TownScene') as any;
+    if (scene?.focusOnAgent) {
+      scene.focusOnAgent(agentId);
+    }
+    // Also fetch and show details
+    handleAgentClick(agentId);
+  }, [handleAgentClick]);
+
   return (
     <>
       <div
@@ -133,6 +144,7 @@ export default function TownCanvas({ initialArea }: TownCanvasProps) {
         ref={containerRef}
         className="w-full h-full"
       />
+      <AgentListPanel onAgentSelect={handleAgentSelect} />
       <AgentDetailModal
         agent={selectedAgent}
         onClose={() => setSelectedAgent(null)}

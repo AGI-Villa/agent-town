@@ -5,7 +5,7 @@ import { TownRenderer } from '../rendering/TownRenderer';
 import { AgentSprite } from '../sprites';
 import { PetSprite } from '../sprites/PetSprite';
 import { PathfindingManager, AgentMovementController } from '../pathfinding';
-import { DayNightCycle, TimeOfDay, GameTimeSystem, TimeSpeed, ScheduleSystem, SocialInteractionSystem, PerformanceManager, TouchInputManager } from '../systems';
+import { DayNightCycle, TimeOfDay, GameTimeSystem, TimeSpeed, ScheduleSystem, SocialInteractionSystem, PerformanceManager, TouchInputManager, MeetingSystem } from '../systems';
 import type { AgentStatus as ApiAgentStatus } from '@/lib/types';
 
 type AgentClickCallback = (agentId: string) => void;
@@ -13,6 +13,7 @@ type AreaChangeCallback = (area: TownArea) => void;
 type ViewportChangeCallback = (x: number, y: number, w: number, h: number) => void;
 type TimeChangeCallback = (hour: number, minute: number, speed: TimeSpeed) => void;
 type AgentDetailCallback = (agentId: string, details: AgentDetails) => void;
+type AgentFocusCallback = (agentId: string) => void;
 
 interface AgentDetails {
   agentId: string;
@@ -27,6 +28,7 @@ let areaChangeCallback: AreaChangeCallback | null = null;
 let viewportChangeCallback: ViewportChangeCallback | null = null;
 let timeChangeCallback: TimeChangeCallback | null = null;
 let agentDetailCallback: AgentDetailCallback | null = null;
+let agentFocusCallback: AgentFocusCallback | null = null;
 
 export function setTownCallbacks(callbacks: {
   onAgentClick?: AgentClickCallback | null;
@@ -34,12 +36,14 @@ export function setTownCallbacks(callbacks: {
   onViewportChange?: ViewportChangeCallback | null;
   onTimeChange?: TimeChangeCallback | null;
   onAgentDetail?: AgentDetailCallback | null;
+  onAgentFocus?: AgentFocusCallback | null;
 }): void {
   agentClickCallback = callbacks.onAgentClick ?? null;
   areaChangeCallback = callbacks.onAreaChange ?? null;
   viewportChangeCallback = callbacks.onViewportChange ?? null;
   timeChangeCallback = callbacks.onTimeChange ?? null;
   agentDetailCallback = callbacks.onAgentDetail ?? null;
+  agentFocusCallback = callbacks.onAgentFocus ?? null;
 }
 
 const AREA_KEYS: TownArea[] = ['office', 'park', 'plaza', 'coffeeShop', 'store', 'residential'];
@@ -54,6 +58,7 @@ export class TownScene extends Phaser.Scene {
   private gameTime!: GameTimeSystem;
   private scheduleSystem!: ScheduleSystem;
   private socialSystem!: SocialInteractionSystem;
+  private meetingSystem!: MeetingSystem;
   private performanceManager!: PerformanceManager;
   private touchInput!: TouchInputManager;
   private currentArea: TownArea = 'office';
@@ -76,6 +81,10 @@ export class TownScene extends Phaser.Scene {
   // Agent detail panel
   private detailPanel: Phaser.GameObjects.Container | null = null;
   private selectedAgentId: string | null = null;
+  
+  // Agent highlight effect
+  private highlightGraphics: Phaser.GameObjects.Graphics | null = null;
+  private highlightTween: Phaser.Tweens.Tween | null = null;
 
   constructor() {
     super({ key: 'TownScene' });
@@ -101,6 +110,7 @@ export class TownScene extends Phaser.Scene {
     this.scheduleSystem = new ScheduleSystem(this, this.gameTime, this.pathfinder);
     this.socialSystem = new SocialInteractionSystem(this);
     this.socialSystem.start();
+    this.meetingSystem = new MeetingSystem(this, this.pathfinder);
     this.performanceManager = new PerformanceManager(this);
     this.touchInput = new TouchInputManager(this);
     this.touchInput.create();
@@ -520,6 +530,92 @@ export class TownScene extends Phaser.Scene {
     this.notifyViewportChange();
   }
 
+  // Focus camera on a specific agent with highlight effect
+  focusOnAgent(agentId: string): void {
+    const agent = this.agents.get(agentId);
+    if (!agent) return;
+
+    // Clear any existing highlight
+    this.clearHighlight();
+
+    // Pan camera to agent position
+    this.cameras.main.pan(agent.x, agent.y, 500, 'Power2', false, (_cam, progress) => {
+      if (progress === 1) {
+        // Zoom in slightly when focused
+        this.tweens.add({
+          targets: this.cameras.main,
+          zoom: Math.min(this.cameras.main.zoom * 1.5, 3),
+          duration: 300,
+          ease: 'Sine.easeOut',
+        });
+      }
+    });
+
+    // Create highlight effect
+    this.highlightGraphics = this.add.graphics();
+    this.highlightGraphics.setDepth(agent.depth - 1);
+
+    // Pulsing circle highlight
+    let radius = 20;
+    const drawHighlight = () => {
+      if (!this.highlightGraphics || !agent.active) return;
+      this.highlightGraphics.clear();
+      this.highlightGraphics.lineStyle(3, 0xffff00, 0.8);
+      this.highlightGraphics.strokeCircle(agent.x, agent.y - 12, radius);
+      this.highlightGraphics.lineStyle(2, 0xffffff, 0.4);
+      this.highlightGraphics.strokeCircle(agent.x, agent.y - 12, radius + 4);
+    };
+
+    drawHighlight();
+
+    // Animate the highlight
+    this.highlightTween = this.tweens.add({
+      targets: { radius: 20 },
+      radius: 28,
+      duration: 600,
+      yoyo: true,
+      repeat: 5,
+      ease: 'Sine.easeInOut',
+      onUpdate: (tween) => {
+        const val = tween.getValue();
+        if (typeof val === 'number') {
+          radius = val;
+          drawHighlight();
+        }
+      },
+      onComplete: () => {
+        this.clearHighlight();
+      },
+    });
+
+    // Show detail panel
+    this.showAgentDetailPanel(agentId);
+
+    // Notify callback
+    agentFocusCallback?.(agentId);
+  }
+
+  private clearHighlight(): void {
+    if (this.highlightTween) {
+      this.highlightTween.stop();
+      this.highlightTween = null;
+    }
+    if (this.highlightGraphics) {
+      this.highlightGraphics.destroy();
+      this.highlightGraphics = null;
+    }
+  }
+
+  // Get all agents for external use (e.g., AgentListPanel)
+  getAgents(): Map<string, AgentSprite> {
+    return this.agents;
+  }
+
+  // Get agent data for external use
+  getAgentData(): Map<string, ApiAgentStatus> {
+    return this.agentData;
+  }
+
   private notifyViewportChange(): void {
     if (viewportChangeCallback) {
       const c = this.cameras.main;
@@ -578,6 +674,7 @@ export class TownScene extends Phaser.Scene {
     this.agents.set(agentData.agent_id, agent);
     this.scheduleSystem.registerAgent(agentData.agent_id, agent, controller);
     this.socialSystem.registerAgent(agentData.agent_id, agent);
+    this.meetingSystem.registerAgent(agentData.agent_id, agent, controller);
     this.performanceManager.registerAgent(agentData.agent_id, agent);
     this.applyAgentStatus(agent, agentData.status);
   }
@@ -631,6 +728,7 @@ export class TownScene extends Phaser.Scene {
     if (agent) { agent.destroy(); this.agents.delete(agentId); }
     this.scheduleSystem.unregisterAgent(agentId);
     this.socialSystem.unregisterAgent(agentId);
+    this.meetingSystem.unregisterAgent(agentId);
     this.performanceManager.unregisterAgent(agentId);
     this.movementControllers.delete(agentId);
     this.agentData.delete(agentId);
@@ -647,6 +745,7 @@ export class TownScene extends Phaser.Scene {
     this.dayNightCycle.update();
     this.scheduleSystem.update();
     this.socialSystem.update();
+    this.meetingSystem.update();
     this.performanceManager.update();
     this.timeText.setText(this.gameTime.getTimeString());
     this.agents.forEach(agent => agent.updateDepth());
@@ -700,6 +799,7 @@ export class TownScene extends Phaser.Scene {
     this.dayNightCycle.destroy();
     this.scheduleSystem.destroy();
     this.socialSystem.destroy();
+    this.meetingSystem.destroy();
     this.performanceManager.destroy();
     this.touchInput.destroy();
     
@@ -709,6 +809,9 @@ export class TownScene extends Phaser.Scene {
     
     // Clean up detail panel
     this.hideAgentDetailPanel();
+    
+    // Clean up highlight
+    this.clearHighlight();
   }
 
   getPerformanceStats() { return this.performanceManager.getStats(); }
