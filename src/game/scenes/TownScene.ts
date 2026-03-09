@@ -5,13 +5,28 @@ import { TownRenderer } from '../rendering/TownRenderer';
 import { AgentSprite } from '../sprites';
 import { PetSprite } from '../sprites/PetSprite';
 import { PathfindingManager, AgentMovementController } from '../pathfinding';
-import { DayNightCycle, TimeOfDay, GameTimeSystem, TimeSpeed, ScheduleSystem, SocialInteractionSystem, PerformanceManager, TouchInputManager, MeetingSystem } from '../systems';
+import {
+  DayNightCycle,
+  TimeOfDay,
+  GameTimeSystem,
+  TimeSpeed,
+  ScheduleSystem,
+  SocialInteractionSystem,
+  PerformanceManager,
+  TouchInputManager,
+  MeetingSystem,
+  EnvironmentSystem,
+  WeatherType,
+  generateRandomWeather,
+  getWeatherIcon,
+} from '../systems';
 import type { AgentStatus as ApiAgentStatus } from '@/lib/types';
 
 type AgentClickCallback = (agentId: string) => void;
 type AreaChangeCallback = (area: TownArea) => void;
 type ViewportChangeCallback = (x: number, y: number, w: number, h: number) => void;
 type TimeChangeCallback = (hour: number, minute: number, speed: TimeSpeed) => void;
+type WeatherChangeCallback = (weather: WeatherType, icon: string) => void;
 type AgentDetailCallback = (agentId: string, details: AgentDetails) => void;
 type AgentFocusCallback = (agentId: string) => void;
 
@@ -27,6 +42,7 @@ let agentClickCallback: AgentClickCallback | null = null;
 let areaChangeCallback: AreaChangeCallback | null = null;
 let viewportChangeCallback: ViewportChangeCallback | null = null;
 let timeChangeCallback: TimeChangeCallback | null = null;
+let weatherChangeCallback: WeatherChangeCallback | null = null;
 let agentDetailCallback: AgentDetailCallback | null = null;
 let agentFocusCallback: AgentFocusCallback | null = null;
 
@@ -35,6 +51,7 @@ export function setTownCallbacks(callbacks: {
   onAreaChange?: AreaChangeCallback | null;
   onViewportChange?: ViewportChangeCallback | null;
   onTimeChange?: TimeChangeCallback | null;
+  onWeatherChange?: WeatherChangeCallback | null;
   onAgentDetail?: AgentDetailCallback | null;
   onAgentFocus?: AgentFocusCallback | null;
 }): void {
@@ -42,6 +59,7 @@ export function setTownCallbacks(callbacks: {
   areaChangeCallback = callbacks.onAreaChange ?? null;
   viewportChangeCallback = callbacks.onViewportChange ?? null;
   timeChangeCallback = callbacks.onTimeChange ?? null;
+  weatherChangeCallback = callbacks.onWeatherChange ?? null;
   agentDetailCallback = callbacks.onAgentDetail ?? null;
   agentFocusCallback = callbacks.onAgentFocus ?? null;
 }
@@ -61,13 +79,17 @@ export class TownScene extends Phaser.Scene {
   private meetingSystem!: MeetingSystem;
   private performanceManager!: PerformanceManager;
   private touchInput!: TouchInputManager;
+  private environmentSystem!: EnvironmentSystem;
   private currentArea: TownArea = 'office';
+  private currentWeather: WeatherType = 'sunny';
   private timeText!: Phaser.GameObjects.Text;
+  private weatherText!: Phaser.GameObjects.Text;
   private speedText!: Phaser.GameObjects.Text;
   private isDragging = false;
   private dragStartX = 0;
   private dragStartY = 0;
   private pollTimer: number | null = null;
+  private weatherTimer: number | null = null;
   private pets: PetSprite[] = [];
   private mapWidth = 0;
   private mapHeight = 0;
@@ -119,16 +141,42 @@ export class TownScene extends Phaser.Scene {
     this.dayNightCycle.create(this.mapWidth, this.mapHeight);
     this.dayNightCycle.start();
 
+    // Environment system for weather effects
+    const initialWeather = generateRandomWeather();
+    this.currentWeather = initialWeather.condition as WeatherType;
+    this.environmentSystem = new EnvironmentSystem(this, this.mapWidth, this.mapHeight, {
+      weather: this.currentWeather,
+      holiday: 'none',
+      particleCount: 80,
+    });
+    this.environmentSystem.create();
+
+    // Listen for weather changes to update agent behavior
+    this.environmentSystem.onWeatherChange((weather) => {
+      this.currentWeather = weather;
+      this.updateWeatherUI();
+      this.handleWeatherBehavior(weather);
+      weatherChangeCallback?.(weather, getWeatherIcon(weather));
+    });
+
     this.gameTime.onTimeChange((hour) => {
       if (hour >= 6 && hour < 8) this.dayNightCycle.setTime('dawn');
       else if (hour >= 8 && hour < 18) this.dayNightCycle.setTime('day');
       else if (hour >= 18 && hour < 20) this.dayNightCycle.setTime('dusk');
       else this.dayNightCycle.setTime('night');
       this.notifyTimeChange();
+      // Handle night behavior - agents go home
+      this.handleNightBehavior(hour);
     });
 
     // HUD — fixed to screen corners
     this.timeText = this.add.text(16, 16, '10:00', {
+      fontSize: '11px', color: '#ffffff', fontFamily: '"Press Start 2P", monospace',
+      backgroundColor: 'rgba(0,0,0,0.5)', padding: { x: 6, y: 4 },
+    }).setDepth(200).setScrollFactor(0);
+
+    // Weather indicator
+    this.weatherText = this.add.text(80, 16, getWeatherIcon(this.currentWeather), {
       fontSize: '11px', color: '#ffffff', fontFamily: '"Press Start 2P", monospace',
       backgroundColor: 'rgba(0,0,0,0.5)', padding: { x: 6, y: 4 },
     }).setDepth(200).setScrollFactor(0);
@@ -200,6 +248,7 @@ export class TownScene extends Phaser.Scene {
 
     this.spawnPets();
     this.startPolling();
+    this.startWeatherCycle();
   }
 
   private fitMapToScreen(): void {
@@ -502,6 +551,103 @@ export class TownScene extends Phaser.Scene {
     this.pollTimer = window.setInterval(() => this.fetchAndUpdateAgents(), 5000);
   }
 
+  /**
+   * Start weather cycle - changes weather randomly every 2-5 minutes (game time).
+   */
+  private startWeatherCycle(): void {
+    const changeWeather = () => {
+      const newWeather = generateRandomWeather();
+      this.environmentSystem.setWeather(newWeather.condition as WeatherType);
+      
+      // Schedule next weather change (2-5 minutes real time, affected by game speed)
+      const baseDelay = 120000 + Math.random() * 180000; // 2-5 minutes
+      this.weatherTimer = window.setTimeout(changeWeather, baseDelay);
+    };
+    
+    // First weather change after 1-3 minutes
+    const initialDelay = 60000 + Math.random() * 120000;
+    this.weatherTimer = window.setTimeout(changeWeather, initialDelay);
+  }
+
+  /**
+   * Update weather UI indicator.
+   */
+  private updateWeatherUI(): void {
+    if (this.weatherText) {
+      this.weatherText.setText(getWeatherIcon(this.currentWeather));
+    }
+  }
+
+  /**
+   * Handle agent behavior changes based on weather.
+   * Rain/snow: agents seek shelter (office, store, coffeeShop).
+   */
+  private handleWeatherBehavior(weather: WeatherType): void {
+    if (weather === 'rain' || weather === 'snow') {
+      // Move outdoor agents to shelter
+      const shelterAreas: TownArea[] = ['office', 'store', 'coffeeShop'];
+      const outdoorAreas: TownArea[] = ['park', 'plaza'];
+      
+      for (const [agentId, agent] of this.agents) {
+        const controller = this.movementControllers.get(agentId);
+        if (!controller) continue;
+        
+        const currentLocation = agent.getLocation();
+        const isOutdoor = outdoorAreas.some(area => 
+          TOWN_MAP.areas[area]?.name === currentLocation
+        );
+        
+        if (isOutdoor) {
+          // Pick a random shelter
+          const shelter = shelterAreas[Math.floor(Math.random() * shelterAreas.length)];
+          const area = TOWN_MAP.areas[shelter];
+          const targetX = area.x + 2 + Math.floor(Math.random() * (area.width - 4));
+          const targetY = area.y + 2 + Math.floor(Math.random() * (area.height - 4));
+          
+          agent.setActivity('seeking shelter');
+          controller.moveTo(targetX, targetY).then(() => {
+            agent.setLocation(area.name);
+            agent.setActivity('sheltering');
+          });
+        }
+      }
+    }
+  }
+
+  /**
+   * Handle agent behavior at night - most agents go home.
+   */
+  private handleNightBehavior(hour: number): void {
+    // Night time: 22:00 - 06:00
+    if (hour >= 22 || hour < 6) {
+      const residentialArea = TOWN_MAP.areas.residential;
+      
+      for (const [agentId, agent] of this.agents) {
+        const controller = this.movementControllers.get(agentId);
+        if (!controller) continue;
+        
+        // 70% chance to go home at night
+        if (Math.random() < 0.7) {
+          const targetX = residentialArea.x + 2 + Math.floor(Math.random() * (residentialArea.width - 4));
+          const targetY = residentialArea.y + 2 + Math.floor(Math.random() * (residentialArea.height - 4));
+          
+          agent.setActivity('going home');
+          controller.moveTo(targetX, targetY).then(() => {
+            agent.setLocation(residentialArea.name);
+            agent.setActivity('sleeping');
+            agent.setAlpha(0.5); // Dim sleeping agents
+          });
+        }
+      }
+    } else if (hour === 6) {
+      // Wake up agents at dawn
+      for (const [, agent] of this.agents) {
+        agent.setAlpha(1);
+        agent.setActivity('waking up');
+      }
+    }
+  }
+
   private async fetchAndUpdateAgents(): Promise<void> {
     if (!this.sys?.displayList) return;
     try {
@@ -749,6 +895,7 @@ export class TownScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     this.gameTime.update();
     this.dayNightCycle.update();
+    this.environmentSystem.update();
     this.scheduleSystem.update();
     this.socialSystem.update();
     this.meetingSystem.update();
@@ -801,8 +948,10 @@ export class TownScene extends Phaser.Scene {
 
   shutdown(): void {
     if (this.pollTimer !== null) { clearInterval(this.pollTimer); this.pollTimer = null; }
+    if (this.weatherTimer !== null) { clearTimeout(this.weatherTimer); this.weatherTimer = null; }
     this.gameTime.destroy();
     this.dayNightCycle.destroy();
+    this.environmentSystem.destroy();
     this.scheduleSystem.destroy();
     this.socialSystem.destroy();
     this.meetingSystem.destroy();
@@ -819,6 +968,10 @@ export class TownScene extends Phaser.Scene {
     // Clean up highlight
     this.clearHighlight();
   }
+
+  // Public getters for weather
+  getWeather(): WeatherType { return this.currentWeather; }
+  setWeather(weather: WeatherType): void { this.environmentSystem.setWeather(weather); }
 
   getPerformanceStats() { return this.performanceManager.getStats(); }
   setZoom(zoom: number): void { this.touchInput.setZoom(zoom); }
