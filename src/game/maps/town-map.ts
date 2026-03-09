@@ -14,16 +14,18 @@ function hash(x: number, y: number): number {
 }
 
 // Villa definitions: origin (top-left), 4 wide x 3 tall
-const VILLAS: { ox: number; oy: number; type: 'A' | 'B' }[] = [
+// Staggered Y layout for visual interest (odd villas offset by 1)
+const VILLAS: { ox: number; oy: number; type: 'A' | 'B' | 'C' }[] = [
   { ox: 5,  oy: 29, type: 'A' },
-  { ox: 13, oy: 29, type: 'B' },
-  { ox: 21, oy: 29, type: 'A' },
-  { ox: 29, oy: 29, type: 'B' },
-  { ox: 37, oy: 29, type: 'A' },
-  { ox: 45, oy: 29, type: 'B' },
+  { ox: 13, oy: 30, type: 'B' },  // y+1 offset
+  { ox: 21, oy: 29, type: 'C' },  // new green villa
+  { ox: 29, oy: 30, type: 'A' },  // y+1 offset
+  { ox: 37, oy: 29, type: 'B' },
+  { ox: 45, oy: 30, type: 'C' },  // y+1 offset, green villa
 ];
 const VILLA_A_BASE = 100;
 const VILLA_B_BASE = 112;
+const VILLA_C_BASE = 124;
 
 // ─── Pond shape (organic blob in park) ────────────────────────
 function isPond(x: number, y: number): boolean {
@@ -207,23 +209,51 @@ function getFurniture(x: number, y: number): number {
   for (const v of VILLAS) {
     const rx = x - v.ox, ry = y - v.oy;
     if (rx >= 0 && rx < 4 && ry >= 0 && ry < 3) {
-      const base = v.type === 'A' ? VILLA_A_BASE : VILLA_B_BASE;
+      const base = v.type === 'A' ? VILLA_A_BASE : v.type === 'B' ? VILLA_B_BASE : VILLA_C_BASE;
       return base + ry * 4 + rx;
     }
   }
 
+  // ── Villa front gardens (fence + flowerbed + mailbox combo) ──
+  for (let i = 0; i < VILLAS.length; i++) {
+    const v = VILLAS[i];
+    const gardenY = v.oy + 3; // row below villa
+    // Fence posts at garden corners
+    if (y === gardenY && (x === v.ox || x === v.ox + 3)) return 71; // fence vertical
+    // Flowerbed in front of door
+    if (y === gardenY && (x === v.ox + 1 || x === v.ox + 2)) return 75; // flowers
+    // Mailbox to the side
+    if (y === gardenY - 1 && x === v.ox - 1) return 82; // mailbox
+  }
+
+  // ── Landscaping between villas (trees, bushes, stone paths) ──
+  // Stone path segments between villas
+  if (y === 28 && (x === 10 || x === 11 || x === 18 || x === 19 || x === 26 || x === 27 || x === 34 || x === 35 || x === 42 || x === 43)) {
+    // These are on dirt path, skip
+  }
+
   // ── Residential decorations (gardens between villas) ──
-  if (y >= 27 && y <= 33 && x >= 4 && x <= 51 && g === 3) {
-    // Trees between villas
-    if (y === 30 && (x === 11 || x === 19 || x === 27 || x === 35 || x === 43)) return 72;
+  if (y >= 27 && y <= 34 && x >= 4 && x <= 51 && g === 3) {
+    // Trees between villas (adjusted for staggered layout)
+    if (y === 30 && (x === 11 || x === 27 || x === 43)) return 72;
+    if (y === 31 && (x === 19 || x === 35)) return 72;
+    // Bushes creating garden boundaries
+    if (y === 28 && (x === 10 || x === 18 || x === 26 || x === 34 || x === 42 || x === 50)) return 76;
+    if (y === 29 && (x === 12 || x === 20 || x === 28 || x === 36 || x === 44)) return 76;
     // Flower beds near villas
-    if (y === 32 && (x === 7 || x === 15 || x === 23 || x === 31 || x === 39 || x === 47)) return 75;
-    // Garden bushes
-    if (y === 28 && (x === 9 || x === 17 || x === 25 || x === 33 || x === 41 || x === 49)) return 76;
+    if (y === 33 && (x === 7 || x === 23 || x === 39)) return 75;
+    if (y === 34 && (x === 15 || x === 31 || x === 47)) return 75;
+    // Rock clusters for variety
+    if (y === 31 && (x === 11 || x === 27 || x === 43)) return 77;
     // Lamp posts along path
     if (y === 27 && (x === 5 || x === 13 || x === 21 || x === 29 || x === 37 || x === 45)) return 81;
-    // Mailboxes in front of villas
-    if (y === 32 && (x === 6 || x === 14 || x === 22 || x === 30 || x === 38 || x === 46)) return 82;
+    // Mailboxes in front of villas (adjusted for stagger)
+    if (y === 32 && x === 4) return 82;
+    if (y === 33 && x === 12) return 82;
+    if (y === 32 && x === 20) return 82;
+    if (y === 33 && x === 28) return 82;
+    if (y === 32 && x === 36) return 82;
+    if (y === 33 && x === 44) return 82;
   }
 
   // ── Bridge over river ──
@@ -308,7 +338,7 @@ function generateCollisionLayer(): number[][] {
       if (g === 7) { row.push(1); continue; }  // water
       if (g === 8) { row.push(1); continue; }  // forest (impassable)
       if (f === 60 || f === 85) { row.push(0); continue; } // doors & bridges
-      if (f >= 100 && f <= 123) { row.push(1); continue; } // villa body
+      if (f >= 100 && f <= 135) { row.push(1); continue; } // villa body (A, B, C)
       const solidFurniture = [10, 11, 12, 13, 20, 28, 40, 50, 54, 70, 71, 72, 74, 90, 92, 93];
       if (solidFurniture.includes(f)) { row.push(1); continue; }
       row.push(0);
@@ -368,11 +398,11 @@ export const TOWN_MAP = {
     ],
     homes: [
       { x: 6,  y: 32, id: 'villa-1', area: 'residential' },
-      { x: 14, y: 32, id: 'villa-2', area: 'residential' },
+      { x: 14, y: 33, id: 'villa-2', area: 'residential' },  // staggered
       { x: 22, y: 32, id: 'villa-3', area: 'residential' },
-      { x: 30, y: 32, id: 'villa-4', area: 'residential' },
+      { x: 30, y: 33, id: 'villa-4', area: 'residential' },  // staggered
       { x: 38, y: 32, id: 'villa-5', area: 'residential' },
-      { x: 46, y: 32, id: 'villa-6', area: 'residential' },
+      { x: 46, y: 33, id: 'villa-6', area: 'residential' },  // staggered
     ],
     cafeTables: [
       { x: 30, y: 19, id: 'cafe-1', area: 'coffeeShop' },
