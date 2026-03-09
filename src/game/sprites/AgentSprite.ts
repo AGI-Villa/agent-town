@@ -31,6 +31,8 @@ function hashAgentId(agentId: string): number {
   return Math.abs(hash);
 }
 
+export type AgentWorkStatus = 'working' | 'thinking' | 'idle' | 'error';
+
 export class AgentSprite extends Phaser.GameObjects.Container {
   private sprite: Phaser.GameObjects.Sprite;
   private animManager: AnimationManager;
@@ -40,6 +42,8 @@ export class AgentSprite extends Phaser.GameObjects.Container {
   private currentState: AnimationState = 'idle_down';
   private statusIndicator?: Phaser.GameObjects.Graphics;
   private nameLabel: Phaser.GameObjects.Text | null = null;
+  private statusIcon: Phaser.GameObjects.Text | null = null;
+  private workStatus: AgentWorkStatus = 'idle';
   
   // Idle wandering state
   private isWandering = false;
@@ -92,6 +96,14 @@ export class AgentSprite extends Phaser.GameObjects.Container {
     });
     this.nameLabel.setOrigin(0.5, 1);
     this.add(this.nameLabel);
+
+    // Status icon above name (emoji-based)
+    this.statusIcon = scene.add.text(0, -SPRITE_CONFIG.frameHeight - 22, '☕', {
+      fontSize: '12px',
+      fontFamily: 'Arial, sans-serif',
+    });
+    this.statusIcon.setOrigin(0.5, 1);
+    this.add(this.statusIcon);
 
     // Set depth based on y position
     this.setDepth(y);
@@ -495,25 +507,26 @@ export class AgentSprite extends Phaser.GameObjects.Container {
     if (!this.wanderBounds || !this.originalPosition) return;
     
     // Calculate random target within bounds (small movement)
-    const maxOffset = 32; // 1 tile
+    const maxOffset = 24; // Reduced from 32 for smaller, more natural movements
     const targetX = this.originalPosition.x + (Math.random() - 0.5) * maxOffset * 2;
     const targetY = this.originalPosition.y + (Math.random() - 0.5) * maxOffset * 2;
     
-    // Clamp to bounds
+    // Clamp to bounds with padding to prevent edge clipping
+    const padding = 8;
     const clampedX = Math.max(
-      this.wanderBounds.x,
-      Math.min(this.wanderBounds.x + this.wanderBounds.width, targetX)
+      this.wanderBounds.x + padding,
+      Math.min(this.wanderBounds.x + this.wanderBounds.width - padding, targetX)
     );
     const clampedY = Math.max(
-      this.wanderBounds.y,
-      Math.min(this.wanderBounds.y + this.wanderBounds.height, targetY)
+      this.wanderBounds.y + padding,
+      Math.min(this.wanderBounds.y + this.wanderBounds.height - padding, targetY)
     );
     
     // Determine direction and walk
     const dx = clampedX - this.x;
     const dy = clampedY - this.y;
     
-    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
       // Walk towards target
       if (Math.abs(dx) > Math.abs(dy)) {
         this.walk(dx > 0 ? 'right' : 'left');
@@ -521,13 +534,20 @@ export class AgentSprite extends Phaser.GameObjects.Container {
         this.walk(dy > 0 ? 'down' : 'up');
       }
       
+      // Use slower tween for natural wandering (500ms per tile equivalent)
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const duration = Math.max(600, distance * 20); // Slower, more natural pace
+      
       // Tween to target position
       this.scene.tweens.add({
         targets: this,
         x: clampedX,
         y: clampedY,
-        duration: 800,
+        duration,
         ease: 'Linear',
+        onUpdate: () => {
+          this.updateDepth();
+        },
         onComplete: () => {
           this.idle();
           this.scheduleNextWander();
@@ -565,6 +585,44 @@ export class AgentSprite extends Phaser.GameObjects.Container {
 
   getLocation(): string {
     return this.currentLocation;
+  }
+
+  // Work status management with emoji icons
+  setWorkStatus(status: AgentWorkStatus): void {
+    this.workStatus = status;
+    this.updateStatusIcon();
+  }
+
+  getWorkStatus(): AgentWorkStatus {
+    return this.workStatus;
+  }
+
+  private updateStatusIcon(): void {
+    if (!this.statusIcon) return;
+    
+    const iconMap: Record<AgentWorkStatus, string> = {
+      working: '💻',
+      thinking: '💭',
+      idle: '☕',
+      error: '🔥',
+    };
+    
+    this.statusIcon.setText(iconMap[this.workStatus] || '☕');
+    
+    // Add subtle animation for working/thinking states
+    if (this.workStatus === 'working' || this.workStatus === 'thinking') {
+      this.scene.tweens.add({
+        targets: this.statusIcon,
+        y: this.statusIcon.y - 2,
+        duration: 500,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    } else {
+      this.scene.tweens.killTweensOf(this.statusIcon);
+      this.statusIcon.setY(-SPRITE_CONFIG.frameHeight - 22);
+    }
   }
 
   // Clean up on destroy

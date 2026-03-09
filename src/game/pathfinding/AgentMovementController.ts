@@ -11,9 +11,12 @@ export interface AgentMovementConfig {
 }
 
 const DEFAULT_CONFIG: AgentMovementConfig = {
-  speed: 2, // 2 tiles per second
+  speed: 2, // 2 tiles per second (slower, more natural movement)
   smoothing: true,
 };
+
+// Minimum time between movement steps to prevent teleporting
+const MIN_STEP_DURATION_MS = 400;
 
 export class AgentMovementController {
   private scene: Phaser.Scene;
@@ -30,6 +33,7 @@ export class AgentMovementController {
   private currentTileY: number = 0;
   private targetTileX: number = 0;
   private targetTileY: number = 0;
+  private isStepInProgress: boolean = false;
 
   constructor(
     scene: Phaser.Scene,
@@ -70,6 +74,17 @@ export class AgentMovementController {
       return true;
     }
 
+    // Validate target is walkable
+    if (!this.pathfinder.isWalkable(targetX, targetY)) {
+      // Find nearest walkable tile
+      const nearest = this.pathfinder.findNearestWalkable(targetX, targetY, this.sprite.getAgentId());
+      if (!nearest) {
+        return false;
+      }
+      targetX = nearest.x;
+      targetY = nearest.y;
+    }
+
     // Find path
     const path = await this.pathfinder.findPathAsync(
       this.currentTileX,
@@ -98,10 +113,24 @@ export class AgentMovementController {
     return true;
   }
 
-  // Follow the current path
+  // Follow the current path step by step (no skipping)
   private async followPath(): Promise<void> {
     while (this.pathIndex < this.currentPath.length && this.isMoving) {
+      // Prevent concurrent step execution
+      if (this.isStepInProgress) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+        continue;
+      }
+      
       const nextNode = this.currentPath[this.pathIndex];
+      
+      // Validate next tile is still walkable (collision check)
+      if (!this.pathfinder.isWalkable(nextNode.x, nextNode.y)) {
+        // Path blocked, stop at current position
+        this.isMoving = false;
+        this.sprite.idle();
+        return;
+      }
       
       // Determine direction
       const dx = nextNode.x - this.currentTileX;
@@ -111,10 +140,12 @@ export class AgentMovementController {
       // Play walk animation
       this.sprite.walk(direction);
 
-      // Move to next tile
+      // Move to next tile (wait for completion before next step)
+      this.isStepInProgress = true;
       await this.moveToTile(nextNode.x, nextNode.y);
+      this.isStepInProgress = false;
       
-      // Update current position
+      // Update current position only after tween completes
       this.currentTileX = nextNode.x;
       this.currentTileY = nextNode.y;
       this.pathIndex++;
@@ -127,20 +158,28 @@ export class AgentMovementController {
     }
   }
 
-  // Move sprite to a specific tile with animation
+  // Move sprite to a specific tile with smooth tween animation
   private moveToTile(tileX: number, tileY: number): Promise<void> {
     return new Promise((resolve) => {
       const targetX = tileX * TILE_SIZE + TILE_SIZE / 2;
       const targetY = (tileY + 1) * TILE_SIZE; // +1 because sprite origin is bottom
 
-      const duration = (1000 / this.config.speed); // ms per tile
+      // Calculate duration: ensure minimum step time to prevent teleporting
+      const baseDuration = 1000 / this.config.speed; // ms per tile
+      const duration = Math.max(baseDuration, MIN_STEP_DURATION_MS);
+
+      // Stop any existing tween before starting new one
+      if (this.currentTween) {
+        this.currentTween.stop();
+        this.currentTween = undefined;
+      }
 
       this.currentTween = this.scene.tweens.add({
         targets: this.sprite,
         x: targetX,
         y: targetY,
         duration,
-        ease: this.config.smoothing ? 'Linear' : 'Steps(1)',
+        ease: 'Linear', // Linear for consistent walking speed
         onUpdate: () => {
           this.sprite.updateDepth();
         },
@@ -163,11 +202,22 @@ export class AgentMovementController {
   // Stop current movement
   stopMovement(): void {
     this.isMoving = false;
+    this.isStepInProgress = false;
     
     if (this.currentTween) {
       this.currentTween.stop();
       this.currentTween = undefined;
     }
+
+    // Snap to nearest tile center to prevent floating between tiles
+    const nearestTileX = Math.round((this.sprite.x - TILE_SIZE / 2) / TILE_SIZE);
+    const nearestTileY = Math.round(this.sprite.y / TILE_SIZE) - 1;
+    this.sprite.setPosition(
+      nearestTileX * TILE_SIZE + TILE_SIZE / 2,
+      (nearestTileY + 1) * TILE_SIZE
+    );
+    this.currentTileX = nearestTileX;
+    this.currentTileY = nearestTileY;
 
     // Release previously occupied tile if different from current
     if (this.targetTileX !== this.currentTileX || this.targetTileY !== this.currentTileY) {
