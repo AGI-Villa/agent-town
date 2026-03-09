@@ -31,8 +31,21 @@ function extractEventSummary(eventType: string, payload: Record<string, unknown>
       return `正在执行: ${toolName}`;
     }
     case "message": {
-      const role = payload?.role as string;
-      const content = payload?.content as string;
+      // OpenClaw JSONL 结构: payload.message.role, payload.message.content
+      const msg = payload?.message as { role?: string; content?: unknown } | undefined;
+      const role = msg?.role || payload?.role as string;
+      
+      // content 可能是字符串或数组
+      let content: string = '';
+      const rawContent = msg?.content || payload?.content;
+      if (typeof rawContent === 'string') {
+        content = rawContent;
+      } else if (Array.isArray(rawContent)) {
+        // content: [{type: "text", text: "..."}]
+        const textItem = rawContent.find((item: unknown) => (item as { type?: string })?.type === 'text');
+        content = (textItem as { text?: string })?.text || '';
+      }
+      
       if (role === "user") {
         if (content) return `收到消息: ${content.slice(0, 50)}${content.length > 50 ? "..." : ""}`;
         return "收到消息";
@@ -41,7 +54,7 @@ function extractEventSummary(eventType: string, payload: Record<string, unknown>
         if (content) return `正在回复: ${content.slice(0, 50)}${content.length > 50 ? "..." : ""}`;
         return "回复消息";
       }
-      return "消息交互";
+      return "消息处理中";
     }
     case "tool_result": {
       const tool = payload?.tool || payload?.name || "";
