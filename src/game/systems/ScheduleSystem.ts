@@ -13,6 +13,7 @@ import {
 
 interface AgentScheduleState {
   agentId: string;
+  agentIndex: number; // stable registration order, used for unique slot assignment
   schedule: AgentSchedule;
   currentBlock: ScheduleBlock | null;
   targetLocation: TownArea | null;
@@ -61,6 +62,7 @@ export class ScheduleSystem {
 
     this.agentStates.set(agentId, {
       agentId,
+      agentIndex: this.agentStates.size,
       schedule,
       currentBlock,
       targetLocation: currentBlock?.location ?? null,
@@ -134,47 +136,54 @@ export class ScheduleSystem {
     });
   }
 
-  private getPositionInArea(area: TownArea, agentId: string): { x: number; y: number } {
+  private areaSlotCounter: Map<string, number> = new Map();
+
+  private getPositionInArea(area: TownArea, _agentId: string): { x: number; y: number } {
     const areaData = TOWN_MAP.areas[area];
     const locations = TOWN_MAP.locations;
+    const idx = this.areaSlotCounter.get(area) ?? 0;
+    this.areaSlotCounter.set(area, idx + 1);
 
-    // Use specific locations if available
     switch (area) {
       case 'office': {
-        const workstations = locations.workstations;
-        const hash = agentId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-        const ws = workstations[hash % workstations.length];
-        return { x: ws.x + 1, y: ws.y + 1 };
+        const slots = locations.workstations;
+        const slot = slots[idx % slots.length];
+        const wrap = Math.floor(idx / slots.length);
+        return { x: slot.x + 1 + wrap, y: slot.y + 1 };
       }
       case 'coffeeShop': {
-        const tables = locations.cafeTables;
-        const hash = agentId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-        const table = tables[hash % tables.length];
-        return { x: table.x, y: table.y + 1 };
+        const slots = locations.cafeTables;
+        const slot = slots[idx % slots.length];
+        const wrap = Math.floor(idx / slots.length);
+        return { x: slot.x + wrap, y: slot.y + 1 };
       }
       case 'park': {
-        const benches = locations.parkBenches;
-        const hash = agentId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-        const bench = benches[hash % benches.length];
-        return { x: bench.x, y: bench.y + 1 };
+        const slots = locations.parkBenches;
+        const slot = slots[idx % slots.length];
+        const wrap = Math.floor(idx / slots.length);
+        return { x: slot.x + wrap, y: slot.y + 1 };
+      }
+      case 'plaza': {
+        const pSlots = locations.plazaBenches;
+        const pSlot = pSlots[idx % pSlots.length];
+        const pWrap = Math.floor(idx / pSlots.length);
+        return { x: pSlot.x + pWrap, y: pSlot.y + 1 };
       }
       case 'residential': {
-        const homes = locations.homes;
-        const hash = agentId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-        const home = homes[hash % homes.length];
-        return { x: home.x + 1, y: home.y + 2 };
+        const slots = locations.homes;
+        const slot = slots[idx % slots.length];
+        const wrap = Math.floor(idx / slots.length);
+        return { x: slot.x + 1 + wrap, y: slot.y };
       }
       case 'store': {
-        // Random position in store area
-        return {
-          x: areaData.x + 2 + Math.floor(Math.random() * (areaData.width - 4)),
-          y: areaData.y + 2 + Math.floor(Math.random() * (areaData.height - 4)),
-        };
+        const sx = areaData.x + 3 + (idx % 6);
+        const sy = areaData.y + 4 + Math.floor(idx / 6) * 2;
+        return { x: sx, y: sy };
       }
       default:
         return {
-          x: areaData.x + Math.floor(areaData.width / 2),
-          y: areaData.y + Math.floor(areaData.height / 2),
+          x: areaData.x + 2 + (idx % (areaData.width - 4)),
+          y: areaData.y + 2 + Math.floor(idx / (areaData.width - 4)) % (areaData.height - 4),
         };
     }
   }

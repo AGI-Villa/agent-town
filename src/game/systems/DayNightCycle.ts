@@ -61,7 +61,7 @@ export class DayNightCycle {
       0x000000,
       0
     );
-    this.overlay.setDepth(1000);
+    this.overlay.setDepth(999);
     this.overlay.setBlendMode(Phaser.BlendModes.MULTIPLY);
     
     this.updateVisuals();
@@ -115,7 +115,7 @@ export class DayNightCycle {
     const alpha = 1 - AMBIENT_LEVELS[this.currentTime];
 
     // Smooth transition
-    const targetAlpha = Math.min(0.5, alpha);
+    const targetAlpha = Math.min(0.25, alpha);
     this.overlay.setFillStyle(this.invertTint(tint), targetAlpha);
   }
 

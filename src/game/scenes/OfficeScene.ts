@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
-import { generateTileset, TILE_SIZE } from '../tiles/tileset-generator';
+import { TILE_SIZE } from '../tiles/tileset-generator';
 import { OFFICE_MAP } from '../maps/office-map';
-import { PICO8_COLORS } from '../tiles/palette';
+import { TownRenderer } from '../rendering/TownRenderer';
 import { AgentSprite, Direction } from '../sprites';
 import { PathfindingManager, AgentMovementController, AgentStatus } from '../pathfinding';
 import { getAgentStateService, AgentStateChangeHandler } from '../services';
@@ -27,10 +27,6 @@ export class OfficeScene extends Phaser.Scene {
     super({ key: 'OfficeScene' });
   }
 
-  preload(): void {
-    generateTileset(this);
-  }
-
   create(): void {
     const { width, height, layers, locations } = OFFICE_MAP;
     const mapWidth = width * TILE_SIZE;
@@ -40,20 +36,23 @@ export class OfficeScene extends Phaser.Scene {
     this.pathfinder = new PathfindingManager();
     this.pathfinder.setGrid(layers.collision);
 
-    this.renderLayer(layers.ground, 0);
-    this.renderLayer(layers.furniture, 1);
-    this.renderCollisionDebug(false);
-    this.addLocationMarkers(locations);
+    const renderer = new TownRenderer(this, {
+      width, height,
+      layers: { ground: layers.ground, furniture: layers.furniture },
+    });
+    renderer.renderAll();
 
-    this.add.text(mapWidth / 2, 16, 'Agent Town Office', {
-      fontSize: '16px',
+    this.add.text(mapWidth / 2, 16, 'AGENT TOWN OFFICE', {
+      fontSize: '11px',
+      fontFamily: '"Press Start 2P", monospace',
       color: '#ffffff',
-      fontFamily: 'monospace',
-      backgroundColor: '#1d2b53',
+      backgroundColor: 'rgba(0,0,0,0.55)',
       padding: { x: 8, y: 4 },
     }).setOrigin(0.5, 0).setDepth(100);
 
     this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
+    this.cameras.main.setZoom(2);
+    this.cameras.main.centerOn(mapWidth / 2, mapHeight / 2);
 
     // Subscribe to state changes
     const handleStateChange: AgentStateChangeHandler = (added, updated, removed) => {
@@ -169,167 +168,9 @@ export class OfficeScene extends Phaser.Scene {
     this.movementControllers.delete(agentId);
   }
 
-  private renderLayer(layerData: number[][], depth: number): void {
-    for (let y = 0; y < layerData.length; y++) {
-      for (let x = 0; x < layerData[y].length; x++) {
-        const tileIndex = layerData[y][x];
-        if (tileIndex < 0) continue;
-        this.drawTile(x, y, tileIndex, depth);
-      }
-    }
-  }
 
-  private drawTile(tileX: number, tileY: number, tileIndex: number, depth: number): void {
-    const graphics = this.add.graphics();
-    graphics.setDepth(depth);
-    
-    const x = tileX * TILE_SIZE;
-    const y = tileY * TILE_SIZE;
 
-    switch (tileIndex) {
-      case 0:
-        graphics.fillStyle(PICO8_COLORS.lightGray);
-        graphics.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-        graphics.fillStyle(PICO8_COLORS.white);
-        graphics.fillRect(x + 2, y + 2, 4, 4);
-        break;
-      case 1:
-        graphics.fillStyle(PICO8_COLORS.darkGray);
-        graphics.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-        break;
-      case 2:
-        graphics.fillStyle(PICO8_COLORS.darkBlue);
-        graphics.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-        graphics.fillStyle(PICO8_COLORS.lavender);
-        for (let i = 0; i < 4; i++) {
-          graphics.fillRect(x + 4 + i * 8, y + 4, 2, 2);
-          graphics.fillRect(x + 8 + i * 8, y + 20, 2, 2);
-        }
-        break;
-      case 10:
-        graphics.fillStyle(PICO8_COLORS.darkPurple);
-        graphics.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-        graphics.fillStyle(PICO8_COLORS.lavender);
-        graphics.fillRect(x, y + TILE_SIZE - 4, TILE_SIZE, 4);
-        break;
-      case 11:
-        graphics.fillStyle(PICO8_COLORS.darkPurple);
-        graphics.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-        graphics.fillStyle(PICO8_COLORS.lavender);
-        graphics.fillRect(x, y, TILE_SIZE, 4);
-        break;
-      case 12:
-        graphics.fillStyle(PICO8_COLORS.darkPurple);
-        graphics.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-        graphics.fillStyle(PICO8_COLORS.lavender);
-        graphics.fillRect(x + TILE_SIZE - 4, y, 4, TILE_SIZE);
-        break;
-      case 13:
-        graphics.fillStyle(PICO8_COLORS.darkPurple);
-        graphics.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-        graphics.fillStyle(PICO8_COLORS.lavender);
-        graphics.fillRect(x, y, 4, TILE_SIZE);
-        break;
-      case 20:
-        graphics.fillStyle(PICO8_COLORS.brown);
-        graphics.fillRect(x + 2, y + 8, TILE_SIZE - 4, TILE_SIZE - 12);
-        graphics.fillStyle(PICO8_COLORS.darkGray);
-        graphics.fillRect(x + 4, y + TILE_SIZE - 6, 4, 6);
-        graphics.fillRect(x + TILE_SIZE - 8, y + TILE_SIZE - 6, 4, 6);
-        break;
-      case 24:
-        graphics.fillStyle(PICO8_COLORS.blue);
-        graphics.fillRect(x + 8, y + 8, 16, 16);
-        graphics.fillStyle(PICO8_COLORS.darkBlue);
-        graphics.fillRect(x + 10, y + 2, 12, 8);
-        break;
-      case 28:
-        graphics.fillStyle(PICO8_COLORS.darkGray);
-        graphics.fillRect(x + 8, y + 16, 16, 12);
-        graphics.fillStyle(PICO8_COLORS.black);
-        graphics.fillRect(x + 6, y + 4, 20, 14);
-        graphics.fillStyle(PICO8_COLORS.darkBlue);
-        graphics.fillRect(x + 8, y + 6, 16, 10);
-        graphics.fillStyle(PICO8_COLORS.green);
-        graphics.fillRect(x + 10, y + 8, 4, 2);
-        break;
-      case 40:
-        graphics.fillStyle(PICO8_COLORS.darkGray);
-        graphics.fillRect(x + 4, y + 4, 24, 24);
-        graphics.fillStyle(PICO8_COLORS.black);
-        graphics.fillRect(x + 8, y + 8, 16, 12);
-        graphics.fillStyle(PICO8_COLORS.red);
-        graphics.fillRect(x + 20, y + 22, 4, 4);
-        graphics.fillStyle(PICO8_COLORS.brown);
-        graphics.fillRect(x + 10, y + 22, 8, 6);
-        break;
-      case 41:
-        graphics.fillStyle(PICO8_COLORS.brown);
-        graphics.fillRect(x, y + 8, TILE_SIZE, TILE_SIZE - 8);
-        graphics.fillStyle(PICO8_COLORS.lightGray);
-        graphics.fillRect(x, y + 8, TILE_SIZE, 4);
-        break;
-      case 44:
-        graphics.fillStyle(PICO8_COLORS.brown);
-        graphics.fillRect(x + 10, y + 20, 12, 10);
-        graphics.fillStyle(PICO8_COLORS.darkGreen);
-        graphics.fillRect(x + 8, y + 8, 16, 14);
-        graphics.fillStyle(PICO8_COLORS.green);
-        graphics.fillRect(x + 12, y + 4, 8, 8);
-        break;
-      case 50:
-        graphics.fillStyle(PICO8_COLORS.brown);
-        graphics.fillRect(x, y + 4, TILE_SIZE, TILE_SIZE - 4);
-        graphics.fillStyle(PICO8_COLORS.orange);
-        graphics.fillRect(x + 2, y + 6, TILE_SIZE - 4, TILE_SIZE - 8);
-        break;
-      case 54:
-        graphics.fillStyle(PICO8_COLORS.darkGray);
-        graphics.fillRect(x + 4, y + 2, 24, 28);
-        graphics.fillStyle(PICO8_COLORS.white);
-        graphics.fillRect(x + 6, y + 4, 20, 22);
-        graphics.fillStyle(PICO8_COLORS.blue);
-        graphics.fillRect(x + 8, y + 8, 12, 2);
-        graphics.fillStyle(PICO8_COLORS.red);
-        graphics.fillRect(x + 8, y + 14, 8, 2);
-        break;
-      case 60:
-        graphics.fillStyle(PICO8_COLORS.brown);
-        graphics.fillRect(x + 4, y, 24, TILE_SIZE);
-        graphics.fillStyle(PICO8_COLORS.orange);
-        graphics.fillRect(x + 8, y + 4, 16, 24);
-        graphics.fillStyle(PICO8_COLORS.yellow);
-        graphics.fillRect(x + 20, y + 16, 4, 4);
-        break;
-    }
-  }
 
-  private renderCollisionDebug(show: boolean): void {
-    if (!show) return;
-
-    const graphics = this.add.graphics();
-    graphics.setDepth(50);
-    graphics.setAlpha(0.3);
-
-    for (let y = 0; y < this.collisionLayer.length; y++) {
-      for (let x = 0; x < this.collisionLayer[y].length; x++) {
-        if (this.collisionLayer[y][x] === 1) {
-          graphics.fillStyle(PICO8_COLORS.red);
-          graphics.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-        }
-      }
-    }
-  }
-
-  private addLocationMarkers(locations: typeof OFFICE_MAP.locations): void {
-    const entrance = locations.entrance;
-    this.add.circle(
-      entrance.x * TILE_SIZE + TILE_SIZE / 2,
-      entrance.y * TILE_SIZE + TILE_SIZE / 2,
-      8,
-      PICO8_COLORS.green
-    ).setDepth(10).setAlpha(0.7);
-  }
 
   public isColliding(tileX: number, tileY: number): boolean {
     if (

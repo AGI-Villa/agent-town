@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { readdir, stat } from "fs/promises";
+import { resolve } from "path";
+import { homedir } from "os";
 import type { Database } from "@/lib/database.types";
 import type { AgentStatus } from "@/lib/types";
 
 type EventRow = Database["public"]["Tables"]["events"]["Row"];
+
+const SKIP_AGENTS = new Set(["test-agent", "agent-001", "sync-agent", "main"]);
 
 export async function GET() {
   try {
@@ -56,17 +61,30 @@ export async function GET() {
       }
     }
 
-    // Determine status from recency of last event
+    // Discover agents from filesystem that may not have DB events yet
+    try {
+      const agentsDir = resolve(homedir(), ".openclaw", "agents");
+      const entries = await readdir(agentsDir);
+      for (const entry of entries) {
+        if (entry.endsWith(".jsonl")) continue;
+        const s = await stat(resolve(agentsDir, entry)).catch(() => null);
+        if (s?.isDirectory() && !agentMap.has(entry) && !SKIP_AGENTS.has(entry)) {
+          agentMap.set(entry, { lastAt: "", lastType: "", count: 0 });
+        }
+      }
+    } catch { /* agents dir may not exist */ }
+
     const agents: AgentStatus[] = [];
 
     for (const [agentId, info] of agentMap) {
-      // Skip internal test agent
-      if (agentId === "test-agent") continue;
+      if (SKIP_AGENTS.has(agentId)) continue;
 
-      let status: "online" | "idle" | "offline" = "offline";
+      let status: "online" | "idle" | "offline";
       if (info.lastAt && info.lastAt >= fiveMinAgo) {
         status = "online";
       } else if (info.lastAt && info.lastAt >= thirtyMinAgo) {
+        status = "idle";
+      } else {
         status = "idle";
       }
 

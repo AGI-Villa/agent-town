@@ -61,6 +61,7 @@ export class SocialInteractionSystem {
   private likeEffects: LikeEffect[] = [];
   private pollTimer: number | null = null;
   private lastLikeCount: Map<string, number> = new Map();
+  private agentInInteraction: Set<string> = new Set();
 
   constructor(scene: Phaser.Scene, config: Partial<SocialInteractionConfig> = {}) {
     this.scene = scene;
@@ -134,7 +135,10 @@ export class SocialInteractionSystem {
         const interactionKey = this.getInteractionKey(id1, id2);
         
         if (distance <= this.config.interactionDistance) {
-          if (!this.activeInteractions.has(interactionKey)) {
+          if (!this.activeInteractions.has(interactionKey)
+            && !this.agentInInteraction.has(id1)
+            && !this.agentInInteraction.has(id2)
+            && this.activeInteractions.size < 3) {
             this.startInteraction(id1, id2, sprite1, sprite2);
           }
         } else {
@@ -189,6 +193,8 @@ export class SocialInteractionSystem {
     };
 
     this.activeInteractions.set(key, interaction);
+    this.agentInInteraction.add(id1);
+    this.agentInInteraction.add(id2);
     this.showDialogueBubble(interaction, sprite1, sprite2);
   }
 
@@ -343,6 +349,10 @@ export class SocialInteractionSystem {
       });
     }
 
+    if (interaction) {
+      this.agentInInteraction.delete(interaction.agents[0]);
+      this.agentInInteraction.delete(interaction.agents[1]);
+    }
     this.activeInteractions.delete(key);
   }
 

@@ -11,6 +11,7 @@
 
 import { watch, type FSWatcher } from "chokidar";
 import { stat } from "fs/promises";
+import type { Stats } from "fs";
 import { resolve } from "path";
 import { homedir } from "os";
 import { readJsonlFile } from "./jsonl-parser";
@@ -26,11 +27,24 @@ export interface WatcherStatus {
 }
 
 const WATCH_PATH = resolve(homedir(), ".openclaw", "agents");
-// Only watch real session files, ignore .deleted backups
-const GLOB_PATTERN = "**/sessions/*.jsonl";
 const MAX_ERRORS = 50;
 // For existing files, only tail the last 100KB to avoid mass-importing history
 const TAIL_BYTES = 100 * 1024;
+
+/**
+ * chokidar v4/v5 removed glob support. We watch the directory directly
+ * and use an `ignored` function to filter for session JSONL files only.
+ */
+function isIgnored(filePath: string, stats?: Stats | null): boolean {
+  // Always recurse into directories
+  if (!stats || stats.isDirectory()) return false;
+  // For files: only track .jsonl files under a sessions/ directory, skip .deleted backups
+  return (
+    !filePath.endsWith(".jsonl") ||
+    !filePath.includes("/sessions/") ||
+    filePath.includes(".deleted.")
+  );
+}
 
 class WatcherService {
   private watcher: FSWatcher | null = null;
@@ -57,14 +71,12 @@ class WatcherService {
   async start(): Promise<void> {
     if (this.watcher) return; // already running, silently skip
 
-    const watchGlob = resolve(WATCH_PATH, GLOB_PATTERN);
-
-    this.watcher = watch(watchGlob, {
+    this.watcher = watch(WATCH_PATH, {
       persistent: true,
       // ignoreInitial: false so we pick up existing active session files
       ignoreInitial: false,
-      // Ignore .deleted backup files
-      ignored: /\.deleted\./,
+      // chokidar v5 no longer supports globs — filter via function instead
+      ignored: isIgnored,
       awaitWriteFinish: {
         stabilityThreshold: 300,
         pollInterval: 100,
@@ -90,7 +102,7 @@ class WatcherService {
       this.addError(`Watcher error: ${msg}`);
     });
 
-    console.log(`[watcher] Started watching: ${watchGlob}`);
+    console.log(`[watcher] Started watching: ${WATCH_PATH} (filtering sessions/*.jsonl)`);
   }
 
   async stop(): Promise<void> {

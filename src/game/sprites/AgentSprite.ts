@@ -39,6 +39,7 @@ export class AgentSprite extends Phaser.GameObjects.Container {
   private textureKey: string;
   private currentState: AnimationState = 'idle_down';
   private statusIndicator?: Phaser.GameObjects.Graphics;
+  private nameLabel: Phaser.GameObjects.Text | null = null;
 
   constructor(
     scene: Phaser.Scene,
@@ -68,6 +69,18 @@ export class AgentSprite extends Phaser.GameObjects.Container {
     this.statusIndicator = scene.add.graphics();
     this.statusIndicator.setPosition(0, -SPRITE_CONFIG.frameHeight - 4);
     this.add(this.statusIndicator);
+
+    // Name label above head
+    const shortName = agentId.replace(/-/g, '').toUpperCase().slice(0, 5);
+    this.nameLabel = scene.add.text(0, -SPRITE_CONFIG.frameHeight - 10, shortName, {
+      fontSize: '7px',
+      fontFamily: '"Press Start 2P", monospace',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 2,
+    });
+    this.nameLabel.setOrigin(0.5, 1);
+    this.add(this.nameLabel);
 
     // Set depth based on y position
     this.setDepth(y);
@@ -101,6 +114,24 @@ export class AgentSprite extends Phaser.GameObjects.Container {
     // Generate texture from graphics
     graphics.generateTexture(this.textureKey, width, height);
     graphics.destroy();
+
+    // Register individual frames so Phaser can address them by index (0-39).
+    // Without this, the entire spritesheet is treated as a single frame.
+    const texture = this.scene.textures.get(this.textureKey);
+    let frameIndex = 0;
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < framesPerRow; col++) {
+        texture.add(
+          frameIndex,
+          0,
+          col * frameWidth,
+          row * frameHeight,
+          frameWidth,
+          frameHeight
+        );
+        frameIndex++;
+      }
+    }
   }
 
   private drawAgentFrame(
@@ -401,3 +432,4 @@ export class AgentSprite extends Phaser.GameObjects.Container {
     return this.currentState;
   }
 }
+

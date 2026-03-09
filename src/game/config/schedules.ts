@@ -18,7 +18,7 @@ export const DEFAULT_SCHEDULE: AgentSchedule = {
   blocks: [
     { startHour: 7, endHour: 9, location: 'residential', activity: 'commute' },
     { startHour: 9, endHour: 12, location: 'office', activity: 'work' },
-    { startHour: 12, endHour: 13, location: 'coffeeShop', activity: 'lunch' },
+    { startHour: 12, endHour: 13, location: 'plaza', activity: 'lunch' },
     { startHour: 13, endHour: 18, location: 'office', activity: 'work' },
     { startHour: 18, endHour: 20, location: 'park', activity: 'leisure' },
     { startHour: 20, endHour: 23, location: 'residential', activity: 'leisure' },
@@ -35,7 +35,7 @@ export const EARLY_BIRD_SCHEDULE: AgentSchedule = {
     { startHour: 7, endHour: 12, location: 'office', activity: 'work' },
     { startHour: 12, endHour: 13, location: 'coffeeShop', activity: 'lunch' },
     { startHour: 13, endHour: 16, location: 'office', activity: 'work' },
-    { startHour: 16, endHour: 18, location: 'park', activity: 'leisure' },
+    { startHour: 16, endHour: 18, location: 'plaza', activity: 'leisure' },
     { startHour: 18, endHour: 21, location: 'residential', activity: 'leisure' },
     { startHour: 21, endHour: 5, location: 'residential', activity: 'sleep' },
   ],
@@ -55,11 +55,42 @@ export const NIGHT_OWL_SCHEDULE: AgentSchedule = {
   ],
 };
 
+// Remote worker — mostly at home/coffee shop
+export const REMOTE_WORKER_SCHEDULE: AgentSchedule = {
+  name: 'remote_worker',
+  blocks: [
+    { startHour: 8, endHour: 10, location: 'coffeeShop', activity: 'commute' },
+    { startHour: 10, endHour: 13, location: 'residential', activity: 'work' },
+    { startHour: 13, endHour: 14, location: 'coffeeShop', activity: 'lunch' },
+    { startHour: 14, endHour: 18, location: 'residential', activity: 'work' },
+    { startHour: 18, endHour: 20, location: 'park', activity: 'leisure' },
+    { startHour: 20, endHour: 23, location: 'residential', activity: 'leisure' },
+    { startHour: 23, endHour: 8, location: 'residential', activity: 'sleep' },
+  ],
+};
+
+// Field agent — roams between park, store, and office
+export const FIELD_AGENT_SCHEDULE: AgentSchedule = {
+  name: 'field_agent',
+  blocks: [
+    { startHour: 8, endHour: 9, location: 'park', activity: 'leisure' },
+    { startHour: 9, endHour: 11, location: 'store', activity: 'work' },
+    { startHour: 11, endHour: 12, location: 'coffeeShop', activity: 'lunch' },
+    { startHour: 12, endHour: 15, location: 'office', activity: 'work' },
+    { startHour: 15, endHour: 17, location: 'plaza', activity: 'leisure' },
+    { startHour: 17, endHour: 19, location: 'store', activity: 'work' },
+    { startHour: 19, endHour: 22, location: 'residential', activity: 'leisure' },
+    { startHour: 22, endHour: 8, location: 'residential', activity: 'sleep' },
+  ],
+};
+
 // All available schedules
 export const SCHEDULES: Record<string, AgentSchedule> = {
   default: DEFAULT_SCHEDULE,
   early_bird: EARLY_BIRD_SCHEDULE,
   night_owl: NIGHT_OWL_SCHEDULE,
+  remote_worker: REMOTE_WORKER_SCHEDULE,
+  field_agent: FIELD_AGENT_SCHEDULE,
 };
 
 // Get schedule block for a given hour

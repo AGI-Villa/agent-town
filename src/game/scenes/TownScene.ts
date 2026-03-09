@@ -1,13 +1,13 @@
 import Phaser from 'phaser';
 import { TILE_SIZE } from '../tiles/tileset-generator';
 import { TOWN_MAP, TownArea } from '../maps/town-map';
-import { PICO8_COLORS } from '../tiles/palette';
+import { TownRenderer } from '../rendering/TownRenderer';
 import { AgentSprite } from '../sprites';
+import { PetSprite } from '../sprites/PetSprite';
 import { PathfindingManager, AgentMovementController } from '../pathfinding';
 import { DayNightCycle, TimeOfDay, GameTimeSystem, TimeSpeed, ScheduleSystem, SocialInteractionSystem, PerformanceManager, TouchInputManager } from '../systems';
 import type { AgentStatus as ApiAgentStatus } from '@/lib/types';
 
-// Event callbacks for React integration
 type AgentClickCallback = (agentId: string) => void;
 type AreaChangeCallback = (area: TownArea) => void;
 type ViewportChangeCallback = (x: number, y: number, w: number, h: number) => void;
@@ -30,6 +30,8 @@ export function setTownCallbacks(callbacks: {
   timeChangeCallback = callbacks.onTimeChange ?? null;
 }
 
+const AREA_KEYS: TownArea[] = ['office', 'park', 'plaza', 'coffeeShop', 'store', 'residential'];
+
 export class TownScene extends Phaser.Scene {
   private collisionLayer: number[][] = [];
   private agents: Map<string, AgentSprite> = new Map();
@@ -49,155 +51,122 @@ export class TownScene extends Phaser.Scene {
   private dragStartX = 0;
   private dragStartY = 0;
   private pollTimer: number | null = null;
+  private pets: PetSprite[] = [];
+  private mapWidth = 0;
+  private mapHeight = 0;
 
   constructor() {
     super({ key: 'TownScene' });
   }
 
-  preload(): void {
-    // Tileset generation handled in create
-  }
+  preload(): void {}
 
   create(): void {
     const { width, height, layers } = TOWN_MAP;
-    const mapWidth = width * TILE_SIZE;
-    const mapHeight = height * TILE_SIZE;
+    this.mapWidth = width * TILE_SIZE;
+    this.mapHeight = height * TILE_SIZE;
 
     this.collisionLayer = layers.collision;
     this.pathfinder = new PathfindingManager();
     this.pathfinder.setGrid(layers.collision);
 
-    // Render map layers
-    this.renderGroundLayer(layers.ground);
-    this.renderFurnitureLayer(layers.furniture);
+    const townRenderer = new TownRenderer(this, TOWN_MAP);
+    townRenderer.renderAll();
 
-    // Set up game time system (start at 9:00 AM)
-    this.gameTime = new GameTimeSystem(this, {
-      startHour: 9,
-      startMinute: 0,
-      speed: 1,
-    });
+    this.gameTime = new GameTimeSystem(this, { startHour: 10, startMinute: 0, speed: 1 });
     this.gameTime.start();
 
-    // Set up schedule system
     this.scheduleSystem = new ScheduleSystem(this, this.gameTime, this.pathfinder);
-
-    // Set up social interaction system
     this.socialSystem = new SocialInteractionSystem(this);
     this.socialSystem.start();
-
-    // Set up performance manager
     this.performanceManager = new PerformanceManager(this);
-
-    // Set up touch input for mobile
     this.touchInput = new TouchInputManager(this);
     this.touchInput.create();
 
-    // Set up day/night cycle synced with game time
-    this.dayNightCycle = new DayNightCycle(this, {
-      cycleDurationMs: 120000,
-      startTime: 'day',
-    });
-    this.dayNightCycle.create(mapWidth, mapHeight);
+    this.dayNightCycle = new DayNightCycle(this, { cycleDurationMs: 120000, startTime: 'day' });
+    this.dayNightCycle.create(this.mapWidth, this.mapHeight);
     this.dayNightCycle.start();
 
-    // Sync day/night with game time
     this.gameTime.onTimeChange((hour) => {
-      if (hour >= 6 && hour < 8) {
-        this.dayNightCycle.setTime('dawn');
-      } else if (hour >= 8 && hour < 18) {
-        this.dayNightCycle.setTime('day');
-      } else if (hour >= 18 && hour < 20) {
-        this.dayNightCycle.setTime('dusk');
-      } else {
-        this.dayNightCycle.setTime('night');
-      }
+      if (hour >= 6 && hour < 8) this.dayNightCycle.setTime('dawn');
+      else if (hour >= 8 && hour < 18) this.dayNightCycle.setTime('day');
+      else if (hour >= 18 && hour < 20) this.dayNightCycle.setTime('dusk');
+      else this.dayNightCycle.setTime('night');
       this.notifyTimeChange();
     });
 
-    // Time display
-    this.timeText = this.add.text(mapWidth - 80, 16, '09:00', {
-      fontSize: '12px',
-      color: '#ffffff',
-      fontFamily: 'monospace',
-      backgroundColor: '#1d2b53',
-      padding: { x: 4, y: 2 },
-    }).setDepth(101).setScrollFactor(0);
+    // HUD — fixed to screen corners
+    this.timeText = this.add.text(16, 16, '10:00', {
+      fontSize: '11px', color: '#ffffff', fontFamily: '"Press Start 2P", monospace',
+      backgroundColor: 'rgba(0,0,0,0.5)', padding: { x: 6, y: 4 },
+    }).setDepth(200).setScrollFactor(0);
 
-    // Speed display
-    this.speedText = this.add.text(mapWidth - 80, 36, '1x', {
-      fontSize: '10px',
-      color: '#ffcc00',
-      fontFamily: 'monospace',
-      backgroundColor: '#1d2b53',
-      padding: { x: 4, y: 2 },
-    }).setDepth(101).setScrollFactor(0);
+    this.speedText = this.add.text(16, 36, '1x', {
+      fontSize: '9px', color: '#ffcc00', fontFamily: '"Press Start 2P", monospace',
+      backgroundColor: 'rgba(0,0,0,0.5)', padding: { x: 6, y: 3 },
+    }).setDepth(200).setScrollFactor(0);
     this.speedText.setInteractive({ useHandCursor: true });
     this.speedText.on('pointerdown', () => this.cycleSpeed());
 
-    // Title
-    this.add.text(16, 16, 'Agent Town', {
-      fontSize: '16px',
-      color: '#ffffff',
-      fontFamily: 'monospace',
-      backgroundColor: '#1d2b53',
-      padding: { x: 8, y: 4 },
-    }).setDepth(100).setScrollFactor(0);
+    // Camera — show full map initially, allow zoom/pan
+    this.cameras.main.setBounds(0, 0, this.mapWidth, this.mapHeight);
+    this.fitMapToScreen();
 
-    // Camera setup
-    this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
-    this.cameras.main.setZoom(1);
-
-    // Enable camera drag
+    // Drag to pan (any mouse button)
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (pointer.rightButtonDown()) {
-        this.isDragging = true;
-        this.dragStartX = pointer.x;
-        this.dragStartY = pointer.y;
-      }
+      this.isDragging = true;
+      this.dragStartX = pointer.x;
+      this.dragStartY = pointer.y;
     });
-
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      if (this.isDragging) {
-        const dx = this.dragStartX - pointer.x;
-        const dy = this.dragStartY - pointer.y;
-        this.cameras.main.scrollX += dx;
-        this.cameras.main.scrollY += dy;
+      if (this.isDragging && pointer.isDown) {
+        const zoom = this.cameras.main.zoom;
+        this.cameras.main.scrollX += (this.dragStartX - pointer.x) / zoom;
+        this.cameras.main.scrollY += (this.dragStartY - pointer.y) / zoom;
         this.dragStartX = pointer.x;
         this.dragStartY = pointer.y;
         this.notifyViewportChange();
       }
     });
+    this.input.on('pointerup', () => { this.isDragging = false; });
 
-    this.input.on('pointerup', () => {
-      this.isDragging = false;
+    // Scroll to zoom
+    this.input.on('wheel', (_p: Phaser.Input.Pointer, _go: Phaser.GameObjects.GameObject[], _dx: number, dy: number) => {
+      const cam = this.cameras.main;
+      const delta = dy > 0 ? -0.15 : 0.15;
+      cam.setZoom(Phaser.Math.Clamp(cam.zoom + delta, 0.5, 4));
+      this.notifyViewportChange();
     });
 
-    // Keyboard controls for areas
+    // Keyboard shortcuts
     this.input.keyboard?.on('keydown-ONE', () => this.navigateToArea('office'));
     this.input.keyboard?.on('keydown-TWO', () => this.navigateToArea('park'));
-    this.input.keyboard?.on('keydown-THREE', () => this.navigateToArea('residential'));
+    this.input.keyboard?.on('keydown-THREE', () => this.navigateToArea('plaza'));
     this.input.keyboard?.on('keydown-FOUR', () => this.navigateToArea('coffeeShop'));
     this.input.keyboard?.on('keydown-FIVE', () => this.navigateToArea('store'));
-
-    // Keyboard controls for time speed
+    this.input.keyboard?.on('keydown-SIX', () => this.navigateToArea('residential'));
     this.input.keyboard?.on('keydown-COMMA', () => this.setTimeSpeed(1));
     this.input.keyboard?.on('keydown-PERIOD', () => this.setTimeSpeed(10));
     this.input.keyboard?.on('keydown-FORWARD_SLASH', () => this.setTimeSpeed(60));
+    this.input.keyboard?.on('keydown-ZERO', () => this.fitMapToScreen());
 
-    // Start polling for agents
+    this.spawnPets();
     this.startPolling();
+  }
 
-    // Start at office
-    this.navigateToArea('office');
+  private fitMapToScreen(): void {
+    const cam = this.cameras.main;
+    const zoomX = cam.width / this.mapWidth;
+    const zoomY = cam.height / this.mapHeight;
+    const zoom = Math.max(Math.min(zoomX, zoomY), 0.5);
+    cam.setZoom(zoom);
+    cam.centerOn(this.mapWidth / 2, this.mapHeight / 2);
   }
 
   private cycleSpeed(): void {
-    const current = this.gameTime.getSpeed();
     const speeds: TimeSpeed[] = [1, 10, 60];
-    const idx = speeds.indexOf(current);
-    const next = speeds[(idx + 1) % speeds.length];
-    this.setTimeSpeed(next);
+    const idx = speeds.indexOf(this.gameTime.getSpeed());
+    this.setTimeSpeed(speeds[(idx + 1) % speeds.length]);
   }
 
   setTimeSpeed(speed: TimeSpeed): void {
@@ -206,36 +175,24 @@ export class TownScene extends Phaser.Scene {
     this.notifyTimeChange();
   }
 
-  getTimeSpeed(): TimeSpeed {
-    return this.gameTime.getSpeed();
-  }
+  getTimeSpeed(): TimeSpeed { return this.gameTime.getSpeed(); }
 
   private notifyTimeChange(): void {
-    if (timeChangeCallback) {
-      timeChangeCallback(
-        this.gameTime.getHour(),
-        this.gameTime.getMinute(),
-        this.gameTime.getSpeed()
-      );
-    }
+    timeChangeCallback?.(this.gameTime.getHour(), this.gameTime.getMinute(), this.gameTime.getSpeed());
   }
 
   private async startPolling(): Promise<void> {
     await this.fetchAndUpdateAgents();
-    this.pollTimer = window.setInterval(() => {
-      this.fetchAndUpdateAgents();
-    }, 5000);
+    this.pollTimer = window.setInterval(() => this.fetchAndUpdateAgents(), 5000);
   }
 
   private async fetchAndUpdateAgents(): Promise<void> {
+    if (!this.sys?.displayList) return;
     try {
       const res = await fetch('/api/agents');
       if (!res.ok) return;
       const agents: ApiAgentStatus[] = await res.json();
-      
-      const newAgentIds = new Set(agents.map(a => a.agent_id));
-      
-      // Add/update agents
+      const newIds = new Set(agents.map(a => a.agent_id));
       for (const agent of agents) {
         if (!this.agents.has(agent.agent_id)) {
           this.createAgent(agent);
@@ -244,301 +201,44 @@ export class TownScene extends Phaser.Scene {
         }
         this.agentData.set(agent.agent_id, agent);
       }
-      
-      // Remove agents no longer in list
-      for (const agentId of this.agents.keys()) {
-        if (!newAgentIds.has(agentId)) {
-          this.removeAgent(agentId);
-        }
+      for (const id of this.agents.keys()) {
+        if (!newIds.has(id)) this.removeAgent(id);
       }
     } catch (err) {
       console.error('Failed to fetch agents:', err);
     }
   }
 
-  private renderGroundLayer(layerData: number[][]): void {
-    for (let y = 0; y < layerData.length; y++) {
-      for (let x = 0; x < layerData[y].length; x++) {
-        const tileIndex = layerData[y][x];
-        this.drawGroundTile(x, y, tileIndex);
-      }
-    }
-  }
-
-  private drawGroundTile(tileX: number, tileY: number, tileIndex: number): void {
-    const graphics = this.add.graphics();
-    graphics.setDepth(0);
-    const x = tileX * TILE_SIZE;
-    const y = tileY * TILE_SIZE;
-
-    switch (tileIndex) {
-      case 0: // Light floor
-        graphics.fillStyle(PICO8_COLORS.lightGray);
-        graphics.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-        graphics.fillStyle(PICO8_COLORS.white);
-        graphics.fillRect(x + 2, y + 2, 4, 4);
-        break;
-      case 1: // Dark floor
-        graphics.fillStyle(PICO8_COLORS.darkGray);
-        graphics.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-        break;
-      case 2: // Carpet
-        graphics.fillStyle(PICO8_COLORS.darkBlue);
-        graphics.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-        break;
-      case 3: // Grass
-        graphics.fillStyle(PICO8_COLORS.darkGreen);
-        graphics.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-        graphics.fillStyle(PICO8_COLORS.green);
-        graphics.fillRect(x + 4, y + 8, 2, 4);
-        graphics.fillRect(x + 20, y + 16, 2, 4);
-        graphics.fillRect(x + 12, y + 24, 2, 4);
-        break;
-      case 4: // Road
-        graphics.fillStyle(PICO8_COLORS.darkGray);
-        graphics.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-        graphics.fillStyle(PICO8_COLORS.yellow);
-        graphics.fillRect(x + 14, y + 14, 4, 4);
-        break;
-      case 5: // Wooden floor
-        graphics.fillStyle(PICO8_COLORS.brown);
-        graphics.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-        graphics.fillStyle(PICO8_COLORS.orange);
-        graphics.fillRect(x, y + 8, TILE_SIZE, 2);
-        graphics.fillRect(x, y + 24, TILE_SIZE, 2);
-        break;
-      case 6: // Tile floor
-        graphics.fillStyle(PICO8_COLORS.lightGray);
-        graphics.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-        graphics.fillStyle(PICO8_COLORS.white);
-        graphics.fillRect(x, y, 16, 16);
-        graphics.fillRect(x + 16, y + 16, 16, 16);
-        break;
-      default:
-        graphics.fillStyle(PICO8_COLORS.black);
-        graphics.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-    }
-  }
-
-  private renderFurnitureLayer(layerData: number[][]): void {
-    for (let y = 0; y < layerData.length; y++) {
-      for (let x = 0; x < layerData[y].length; x++) {
-        const tileIndex = layerData[y][x];
-        if (tileIndex < 0) continue;
-        this.drawFurnitureTile(x, y, tileIndex);
-      }
-    }
-  }
-
-  private drawFurnitureTile(tileX: number, tileY: number, tileIndex: number): void {
-    const graphics = this.add.graphics();
-    graphics.setDepth(1);
-    const x = tileX * TILE_SIZE;
-    const y = tileY * TILE_SIZE;
-
-    switch (tileIndex) {
-      // Walls
-      case 10: // Top wall
-        graphics.fillStyle(PICO8_COLORS.darkPurple);
-        graphics.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-        graphics.fillStyle(PICO8_COLORS.lavender);
-        graphics.fillRect(x, y + TILE_SIZE - 4, TILE_SIZE, 4);
-        break;
-      case 11: // Bottom wall
-        graphics.fillStyle(PICO8_COLORS.darkPurple);
-        graphics.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-        graphics.fillStyle(PICO8_COLORS.lavender);
-        graphics.fillRect(x, y, TILE_SIZE, 4);
-        break;
-      case 12: // Left wall
-        graphics.fillStyle(PICO8_COLORS.darkPurple);
-        graphics.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-        graphics.fillStyle(PICO8_COLORS.lavender);
-        graphics.fillRect(x + TILE_SIZE - 4, y, 4, TILE_SIZE);
-        break;
-      case 13: // Right wall
-        graphics.fillStyle(PICO8_COLORS.darkPurple);
-        graphics.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-        graphics.fillStyle(PICO8_COLORS.lavender);
-        graphics.fillRect(x, y, 4, TILE_SIZE);
-        break;
-
-      // Office furniture
-      case 20: // Desk
-        graphics.fillStyle(PICO8_COLORS.brown);
-        graphics.fillRect(x + 2, y + 8, TILE_SIZE - 4, TILE_SIZE - 12);
-        break;
-      case 24: // Chair
-        graphics.fillStyle(PICO8_COLORS.blue);
-        graphics.fillRect(x + 8, y + 8, 16, 16);
-        break;
-      case 28: // Computer
-        graphics.fillStyle(PICO8_COLORS.black);
-        graphics.fillRect(x + 6, y + 4, 20, 14);
-        graphics.fillStyle(PICO8_COLORS.darkBlue);
-        graphics.fillRect(x + 8, y + 6, 16, 10);
-        break;
-      case 40: // Coffee machine
-        graphics.fillStyle(PICO8_COLORS.darkGray);
-        graphics.fillRect(x + 4, y + 4, 24, 24);
-        graphics.fillStyle(PICO8_COLORS.red);
-        graphics.fillRect(x + 20, y + 22, 4, 4);
-        break;
-      case 41: // Counter
-        graphics.fillStyle(PICO8_COLORS.brown);
-        graphics.fillRect(x, y + 8, TILE_SIZE, TILE_SIZE - 8);
-        break;
-      case 44: // Plant
-        graphics.fillStyle(PICO8_COLORS.brown);
-        graphics.fillRect(x + 10, y + 20, 12, 10);
-        graphics.fillStyle(PICO8_COLORS.green);
-        graphics.fillRect(x + 8, y + 8, 16, 14);
-        break;
-      case 50: // Meeting table
-        graphics.fillStyle(PICO8_COLORS.brown);
-        graphics.fillRect(x, y + 4, TILE_SIZE, TILE_SIZE - 4);
-        break;
-      case 54: // Whiteboard
-        graphics.fillStyle(PICO8_COLORS.white);
-        graphics.fillRect(x + 6, y + 4, 20, 22);
-        break;
-      case 60: // Door
-        graphics.fillStyle(PICO8_COLORS.brown);
-        graphics.fillRect(x + 4, y, 24, TILE_SIZE);
-        graphics.fillStyle(PICO8_COLORS.yellow);
-        graphics.fillRect(x + 20, y + 16, 4, 4);
-        break;
-
-      // Park
-      case 70: // Fence horizontal
-        graphics.fillStyle(PICO8_COLORS.brown);
-        graphics.fillRect(x, y + 12, TILE_SIZE, 8);
-        break;
-      case 71: // Fence vertical
-        graphics.fillStyle(PICO8_COLORS.brown);
-        graphics.fillRect(x + 12, y, 8, TILE_SIZE);
-        break;
-      case 72: // Tree
-        graphics.fillStyle(PICO8_COLORS.brown);
-        graphics.fillRect(x + 12, y + 16, 8, 16);
-        graphics.fillStyle(PICO8_COLORS.darkGreen);
-        graphics.fillCircle(x + 16, y + 12, 12);
-        break;
-      case 73: // Bench
-        graphics.fillStyle(PICO8_COLORS.brown);
-        graphics.fillRect(x + 4, y + 16, 24, 8);
-        graphics.fillRect(x + 6, y + 24, 4, 6);
-        graphics.fillRect(x + 22, y + 24, 4, 6);
-        break;
-      case 74: // Fountain
-        graphics.fillStyle(PICO8_COLORS.lightGray);
-        graphics.fillCircle(x + 16, y + 16, 14);
-        graphics.fillStyle(PICO8_COLORS.blue);
-        graphics.fillCircle(x + 16, y + 16, 10);
-        break;
-      case 75: // Flowers
-        graphics.fillStyle(PICO8_COLORS.pink);
-        graphics.fillCircle(x + 8, y + 20, 4);
-        graphics.fillCircle(x + 16, y + 18, 4);
-        graphics.fillCircle(x + 24, y + 22, 4);
-        break;
-
-      // Residential
-      case 80: // House
-        graphics.fillStyle(PICO8_COLORS.peach);
-        graphics.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-        graphics.fillStyle(PICO8_COLORS.red);
-        graphics.fillRect(x, y, TILE_SIZE, 8);
-        break;
-      case 81: // Street lamp
-        graphics.fillStyle(PICO8_COLORS.darkGray);
-        graphics.fillRect(x + 14, y + 8, 4, 24);
-        graphics.fillStyle(PICO8_COLORS.yellow);
-        graphics.fillCircle(x + 16, y + 6, 6);
-        break;
-      case 82: // Mailbox
-        graphics.fillStyle(PICO8_COLORS.blue);
-        graphics.fillRect(x + 10, y + 16, 12, 10);
-        graphics.fillRect(x + 14, y + 26, 4, 6);
-        break;
-
-      // Coffee shop
-      case 90: // Coffee counter
-        graphics.fillStyle(PICO8_COLORS.brown);
-        graphics.fillRect(x, y + 4, TILE_SIZE, TILE_SIZE - 4);
-        graphics.fillStyle(PICO8_COLORS.orange);
-        graphics.fillRect(x, y + 4, TILE_SIZE, 4);
-        break;
-      case 91: // Cafe table
-        graphics.fillStyle(PICO8_COLORS.brown);
-        graphics.fillCircle(x + 16, y + 16, 10);
-        break;
-
-      // Store
-      case 92: // Store counter
-        graphics.fillStyle(PICO8_COLORS.lightGray);
-        graphics.fillRect(x, y + 4, TILE_SIZE, TILE_SIZE - 4);
-        break;
-      case 93: // Shelf
-        graphics.fillStyle(PICO8_COLORS.brown);
-        graphics.fillRect(x + 4, y + 4, 24, 24);
-        graphics.fillStyle(PICO8_COLORS.green);
-        graphics.fillRect(x + 8, y + 8, 6, 6);
-        graphics.fillStyle(PICO8_COLORS.red);
-        graphics.fillRect(x + 18, y + 8, 6, 6);
-        graphics.fillStyle(PICO8_COLORS.blue);
-        graphics.fillRect(x + 8, y + 18, 6, 6);
-        graphics.fillStyle(PICO8_COLORS.yellow);
-        graphics.fillRect(x + 18, y + 18, 6, 6);
-        break;
-    }
-  }
-
   navigateToArea(area: TownArea): void {
-    const areaData = TOWN_MAP.areas[area];
-    if (!areaData) return;
-
+    const ad = TOWN_MAP.areas[area];
+    if (!ad) return;
     this.currentArea = area;
-    
-    // Center camera on area
-    const centerX = (areaData.x + areaData.width / 2) * TILE_SIZE;
-    const centerY = (areaData.y + areaData.height / 2) * TILE_SIZE;
-    
-    this.cameras.main.pan(centerX, centerY, 500, 'Power2');
-    
-    if (areaChangeCallback) {
-      areaChangeCallback(area);
-    }
-    
+    const cx = (ad.x + ad.width / 2) * TILE_SIZE;
+    const cy = (ad.y + ad.height / 2) * TILE_SIZE;
+    this.cameras.main.pan(cx, cy, 500, 'Power2');
+    areaChangeCallback?.(area);
     this.notifyViewportChange();
   }
 
   private notifyViewportChange(): void {
     if (viewportChangeCallback) {
-      const cam = this.cameras.main;
-      viewportChangeCallback(
-        cam.scrollX,
-        cam.scrollY,
-        cam.width,
-        cam.height
-      );
+      const c = this.cameras.main;
+      viewportChangeCallback(c.scrollX, c.scrollY, c.width, c.height);
     }
   }
 
   private createAgent(agentData: ApiAgentStatus): void {
     if (this.agents.has(agentData.agent_id)) return;
+    if (!this.sys?.displayList) return;
 
-    // Spread agents across ALL locations: workstations, park benches, homes, cafe tables
-    const allSpawnPoints = [
-      ...TOWN_MAP.locations.workstations,
-      ...TOWN_MAP.locations.parkBenches,
-      ...TOWN_MAP.locations.homes,
-      ...TOWN_MAP.locations.cafeTables,
-    ];
-    const agentIndex = this.agents.size;
-    const spawnPoint = allSpawnPoints[agentIndex % allSpawnPoints.length];
-    const tileX = spawnPoint.x + 1;
-    const tileY = spawnPoint.y + 1;
+    // Spread agents across all areas round-robin
+    const idx = this.agents.size;
+    const areaKey = AREA_KEYS[idx % AREA_KEYS.length];
+    const area = TOWN_MAP.areas[areaKey];
+    const slotInArea = Math.floor(idx / AREA_KEYS.length);
+    const cols = area.width - 4;
+    const tileX = area.x + 2 + (slotInArea % cols);
+    const tileY = area.y + 2 + Math.floor(slotInArea / cols) % (area.height - 4);
 
     const agent = new AgentSprite(
       this,
@@ -546,68 +246,40 @@ export class TownScene extends Phaser.Scene {
       (tileY + 1) * TILE_SIZE,
       agentData.agent_id
     );
-
     agent.setInteractive(new Phaser.Geom.Rectangle(-8, -24, 16, 24), Phaser.Geom.Rectangle.Contains);
-    agent.on('pointerdown', () => {
-      if (agentClickCallback) {
-        agentClickCallback(agentData.agent_id);
-      }
-    });
+    agent.on('pointerdown', () => agentClickCallback?.(agentData.agent_id));
     agent.on('pointerover', () => agent.setScale(1.1));
     agent.on('pointerout', () => agent.setScale(1));
 
     const controller = new AgentMovementController(this, agent, this.pathfinder);
     controller.setPosition(tileX, tileY);
-    
     this.movementControllers.set(agentData.agent_id, controller);
     this.agents.set(agentData.agent_id, agent);
-    
-    // Register with schedule system
     this.scheduleSystem.registerAgent(agentData.agent_id, agent, controller);
-    
-    // Register with social interaction system
     this.socialSystem.registerAgent(agentData.agent_id, agent);
-    
-    // Register with performance manager
     this.performanceManager.registerAgent(agentData.agent_id, agent);
-    
     this.applyAgentStatus(agent, agentData.status);
   }
 
   private updateAgentState(agentData: ApiAgentStatus): void {
     const agent = this.agents.get(agentData.agent_id);
-    if (agent) {
-      this.applyAgentStatus(agent, agentData.status);
-    }
+    if (agent) this.applyAgentStatus(agent, agentData.status);
   }
 
   private applyAgentStatus(agent: AgentSprite, status: string): void {
     switch (status) {
       case 'online':
-        agent.work();
-        agent.setVisible(true);
-        agent.setAlpha(1);
-        break;
+        agent.work(); agent.setVisible(true); agent.setAlpha(1); break;
       case 'idle':
-        agent.rest();
-        agent.setVisible(true);
-        agent.setAlpha(1);
-        break;
-      case 'offline':
-        agent.idle();
-        agent.setAlpha(0.5);
-        break;
+        agent.rest(); agent.setVisible(true); agent.setAlpha(1); break;
       default:
-        agent.idle();
+        agent.idle(); agent.setAlpha(0.6);
     }
   }
 
   private removeAgent(agentId: string): void {
     const agent = this.agents.get(agentId);
-    if (agent) {
-      agent.destroy();
-      this.agents.delete(agentId);
-    }
+    if (agent) { agent.destroy(); this.agents.delete(agentId); }
     this.scheduleSystem.unregisterAgent(agentId);
     this.socialSystem.unregisterAgent(agentId);
     this.performanceManager.unregisterAgent(agentId);
@@ -615,30 +287,13 @@ export class TownScene extends Phaser.Scene {
     this.agentData.delete(agentId);
   }
 
-  getCurrentArea(): TownArea {
-    return this.currentArea;
-  }
+  getCurrentArea(): TownArea { return this.currentArea; }
+  getTimeOfDay(): TimeOfDay { return this.dayNightCycle.getCurrentTime(); }
+  getGameTime(): { hour: number; minute: number } { return { hour: this.gameTime.getHour(), minute: this.gameTime.getMinute() }; }
+  getGameTimeString(): string { return this.gameTime.getTimeString(); }
+  setGameTime(hour: number, minute: number = 0): void { this.gameTime.setTime(hour, minute); }
 
-  getTimeOfDay(): TimeOfDay {
-    return this.dayNightCycle.getCurrentTime();
-  }
-
-  getGameTime(): { hour: number; minute: number } {
-    return {
-      hour: this.gameTime.getHour(),
-      minute: this.gameTime.getMinute(),
-    };
-  }
-
-  getGameTimeString(): string {
-    return this.gameTime.getTimeString();
-  }
-
-  setGameTime(hour: number, minute: number = 0): void {
-    this.gameTime.setTime(hour, minute);
-  }
-
-  update(): void {
+  update(_time: number, delta: number): void {
     this.gameTime.update();
     this.dayNightCycle.update();
     this.scheduleSystem.update();
@@ -646,13 +301,48 @@ export class TownScene extends Phaser.Scene {
     this.performanceManager.update();
     this.timeText.setText(this.gameTime.getTimeString());
     this.agents.forEach(agent => agent.updateDepth());
+    for (const pet of this.pets) pet.update(_time, delta);
+    this.checkPetInteractions();
+  }
+
+  private spawnPets(): void {
+    const petDefs: { type: 'cat' | 'dog'; name: string; area: string }[] = [
+      { type: 'cat', name: 'Mochi', area: 'office' },
+      { type: 'cat', name: 'Luna', area: 'park' },
+      { type: 'cat', name: 'Neko', area: 'residential' },
+      { type: 'cat', name: 'Mimi', area: 'store' },
+      { type: 'dog', name: 'Buddy', area: 'park' },
+      { type: 'dog', name: 'Max', area: 'coffeeShop' },
+      { type: 'dog', name: 'Rex', area: 'residential' },
+      { type: 'cat', name: 'Whiskers', area: 'plaza' },
+    ];
+    for (let i = 0; i < petDefs.length; i++) {
+      const def = petDefs[i];
+      const area = TOWN_MAP.areas[def.area as keyof typeof TOWN_MAP.areas];
+      if (!area) continue;
+      const px = (area.x + 2 + Math.random() * (area.width - 4)) * TILE_SIZE;
+      const py = (area.y + 2 + Math.random() * (area.height - 4)) * TILE_SIZE;
+      const pet = new PetSprite(this, px, py, def.type, def.name, i, this.mapWidth, this.mapHeight);
+      this.pets.push(pet);
+    }
+  }
+
+  private checkPetInteractions(): void {
+    for (const pet of this.pets) {
+      if (pet.getIsInteracting()) continue;
+      for (const [, agent] of this.agents) {
+        const dx = pet.x - agent.x;
+        const dy = pet.y - agent.y;
+        if (Math.sqrt(dx * dx + dy * dy) < TILE_SIZE * 1.5) {
+          pet.showInteraction(pet.getPetType() === 'cat' ? '😺' : '🐶');
+          break;
+        }
+      }
+    }
   }
 
   shutdown(): void {
-    if (this.pollTimer !== null) {
-      clearInterval(this.pollTimer);
-      this.pollTimer = null;
-    }
+    if (this.pollTimer !== null) { clearInterval(this.pollTimer); this.pollTimer = null; }
     this.gameTime.destroy();
     this.dayNightCycle.destroy();
     this.scheduleSystem.destroy();
@@ -661,17 +351,7 @@ export class TownScene extends Phaser.Scene {
     this.touchInput.destroy();
   }
 
-  // Performance stats
-  getPerformanceStats(): { total: number; visible: number; lowDetail: number; frameSkip: number } {
-    return this.performanceManager.getStats();
-  }
-
-  // Zoom control
-  setZoom(zoom: number): void {
-    this.touchInput.setZoom(zoom);
-  }
-
-  getZoom(): number {
-    return this.touchInput.getZoom();
-  }
+  getPerformanceStats() { return this.performanceManager.getStats(); }
+  setZoom(zoom: number): void { this.touchInput.setZoom(zoom); }
+  getZoom(): number { return this.touchInput.getZoom(); }
 }
