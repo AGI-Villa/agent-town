@@ -86,21 +86,48 @@ export class TownRenderer {
         break;
       }
 
-      case 5: { // Wood floor (cafe)
+      case 5: { // Wood floor (cafe) — enhanced with wood grain and knots
         g.fillStyle(0xb8885a); g.fillRect(px, py, T, T);
         g.fillStyle(0xc89868, 0.45);
         g.fillRect(px + (tx % 2) * 16, py, 16, T);
+        // Wood grain lines
         g.fillStyle(0xa07848, 0.3);
         g.fillRect(px, py + 7, T, 1); g.fillRect(px, py + 15, T, 1); g.fillRect(px, py + 23, T, 1);
+        // Additional grain detail
+        g.fillStyle(0x9a6838, 0.2);
+        g.fillRect(px + 2, py + 3, 12, 1); g.fillRect(px + 18, py + 11, 10, 1); g.fillRect(px + 6, py + 19, 14, 1);
+        // Wood knots (pseudo-random based on position)
+        if (h % 7 === 0) {
+          g.fillStyle(0x8a5828, 0.35);
+          g.fillCircle(px + (h % 20) + 6, py + ((h >> 4) % 16) + 8, 2);
+        }
+        if (h % 11 === 0) {
+          g.fillStyle(0x7a4818, 0.25);
+          g.fillCircle(px + ((h >> 3) % 18) + 8, py + ((h >> 6) % 14) + 10, 1.5);
+        }
+        // Subtle shadow/highlight variation
+        g.fillStyle(0x000000, 0.03);
+        g.fillRect(px + (h % 12), py + ((h >> 2) % 10), 14, 12);
         break;
       }
 
-      case 6: { // Tile floor (store)
+      case 6: { // Tile floor (store) — enhanced with gloss reflection
         g.fillStyle(0xe0dcd0); g.fillRect(px, py, T, T);
         g.fillStyle(0xd0ccc0, 0.45);
         g.fillRect(px + 1, py + 1, 14, 14); g.fillRect(px + 17, py + 17, 14, 14);
         g.fillStyle(0xc8c4b8, 0.25);
         g.fillRect(px + 15, py, 2, T); g.fillRect(px, py + 15, T, 2);
+        // Subtle gloss reflection effect
+        g.fillStyle(0xffffff, 0.08);
+        g.fillRect(px + 2, py + 2, 10, 6);
+        g.fillRect(px + 18, py + 18, 10, 6);
+        // Micro highlight variation
+        g.fillStyle(0xffffff, 0.04);
+        g.fillRect(px + ((h % 8) + 4), py + ((h >> 3) % 6) + 2, 6, 3);
+        // Subtle shadow for depth
+        g.fillStyle(0x000000, 0.02);
+        g.fillRect(px + 8, py + 10, 6, 4);
+        g.fillRect(px + 22, py + 24, 8, 4);
         break;
       }
 
@@ -194,31 +221,46 @@ export class TownRenderer {
     const h = hash(tx, ty);
 
     // ─── Villa multi-tile rendering ───
-    if (tile >= 100 && tile <= 111) { this.drawVillaA(g, px, py, tile - 100); return; }
-    if (tile >= 112 && tile <= 123) { this.drawVillaB(g, px, py, tile - 112); return; }
+    if (tile >= 100 && tile <= 111) { this.drawVillaA(g, px, py, tile - 100, tx, ty); return; }
+    if (tile >= 112 && tile <= 123) { this.drawVillaB(g, px, py, tile - 112, tx, ty); return; }
+    if (tile >= 124 && tile <= 135) { this.drawVillaC(g, px, py, tile - 124, tx, ty); return; }
 
     switch (tile) {
-      // ─── Walls (warm stone, thin band) ───
-      case 10: // top wall — thin band at bottom, roof hint at top
-        g.fillStyle(0xb8a888, 0.15); g.fillRect(px, py, T, T - 6);
-        g.fillStyle(0x9a8a70); g.fillRect(px, py + T - 8, T, 8);
-        g.fillStyle(0xb0a080); g.fillRect(px, py + T - 6, T, 2);
+      // ─── Walls (warm stone, enhanced with windows) ───
+      case 10: { // top wall — thicker band with roof tiles and windows
+        g.fillStyle(0xb8a888, 0.15); g.fillRect(px, py, T, T - 10);
+        // Roof tile effect at top
+        g.fillStyle(0xcc7755); g.fillRect(px, py, T, 3);
+        g.fillStyle(0xbb6644); g.fillRect(px, py + 3, T, 2);
+        // Wall body (10-12px)
+        g.fillStyle(0x9a8a70); g.fillRect(px, py + T - 12, T, 12);
+        g.fillStyle(0xb0a080); g.fillRect(px, py + T - 10, T, 2);
         g.fillStyle(0xc0b090, 0.5); g.fillRect(px, py + T - 2, T, 2);
+        // Window detail on long walls (every other tile)
+        if (tx % 3 === 1) {
+          g.fillStyle(0x88aacc); g.fillRect(px + 10, py + T - 9, 12, 6);
+          g.fillStyle(0x7a6a5a); g.fillRect(px + 10, py + T - 9, 12, 1);
+          g.fillRect(px + 10, py + T - 4, 12, 1);
+          g.fillRect(px + 10, py + T - 9, 1, 6);
+          g.fillRect(px + 21, py + T - 9, 1, 6);
+          g.fillStyle(0x000000, 0.1); g.fillRect(px + 16, py + T - 9, 1, 6);
+        }
         break;
-      case 11: // bottom wall
-        g.fillStyle(0x9a8a70); g.fillRect(px, py, T, 8);
-        g.fillStyle(0xb0a080); g.fillRect(px, py + 4, T, 2);
-        g.fillStyle(0xb8a888, 0.15); g.fillRect(px, py + 8, T, T - 8);
+      }
+      case 11: // bottom wall — thicker
+        g.fillStyle(0x9a8a70); g.fillRect(px, py, T, 10);
+        g.fillStyle(0xb0a080); g.fillRect(px, py + 6, T, 2);
+        g.fillStyle(0xb8a888, 0.15); g.fillRect(px, py + 10, T, T - 10);
         break;
-      case 12: // left wall
-        g.fillStyle(0x9a8a70); g.fillRect(px + T - 8, py, 8, T);
-        g.fillStyle(0xb0a080); g.fillRect(px + T - 6, py, 2, T);
-        g.fillStyle(0xb8a888, 0.12); g.fillRect(px, py, T - 8, T);
+      case 12: // left wall — thicker (10px)
+        g.fillStyle(0x9a8a70); g.fillRect(px + T - 10, py, 10, T);
+        g.fillStyle(0xb0a080); g.fillRect(px + T - 8, py, 2, T);
+        g.fillStyle(0xb8a888, 0.12); g.fillRect(px, py, T - 10, T);
         break;
-      case 13: // right wall
-        g.fillStyle(0x9a8a70); g.fillRect(px, py, 8, T);
-        g.fillStyle(0xb0a080); g.fillRect(px + 4, py, 2, T);
-        g.fillStyle(0xb8a888, 0.12); g.fillRect(px + 8, py, T - 8, T);
+      case 13: // right wall — thicker (10px)
+        g.fillStyle(0x9a8a70); g.fillRect(px, py, 10, T);
+        g.fillStyle(0xb0a080); g.fillRect(px + 6, py, 2, T);
+        g.fillStyle(0xb8a888, 0.12); g.fillRect(px + 10, py, T - 10, T);
         break;
 
       // ─── Office furniture ───
@@ -267,10 +309,15 @@ export class TownRenderer {
         g.fillStyle(0x3366cc, 0.6); g.fillRect(px + 8, py + 8, 14, 2); g.fillRect(px + 8, py + 13, 10, 2);
         g.fillStyle(0xcc3333, 0.5); g.fillRect(px + 8, py + 18, 16, 2);
         break;
-      case 60: // door
-        g.fillStyle(0x8b6246); g.fillRect(px + 6, py + 2, 20, T - 2);
-        g.fillStyle(0x7a5236, 0.5); g.fillRect(px + 9, py + 5, 14, 10); g.fillRect(px + 9, py + 18, 14, 10);
-        g.fillStyle(0xccaa44); g.fillRect(px + 21, py + 16, 3, 4);
+      case 60: // door — with welcome mat/step
+        // Welcome mat / step
+        g.fillStyle(0x8a6a4a); g.fillRect(px + 4, py + T - 6, 24, 6);
+        g.fillStyle(0x9a7a5a); g.fillRect(px + 6, py + T - 5, 20, 4);
+        g.fillStyle(0x7a5a3a, 0.4); g.fillRect(px + 8, py + T - 4, 16, 2);
+        // Door
+        g.fillStyle(0x8b6246); g.fillRect(px + 6, py + 2, 20, T - 8);
+        g.fillStyle(0x7a5236, 0.5); g.fillRect(px + 9, py + 5, 14, 10); g.fillRect(px + 9, py + 18, 14, 6);
+        g.fillStyle(0xccaa44); g.fillRect(px + 21, py + 14, 3, 4);
         break;
 
       // ─── Park furniture ───
@@ -391,8 +438,9 @@ export class TownRenderer {
   }
 
   // ─── Villa Type A (warm: terracotta roof, cream walls) ─────
-  private drawVillaA(g: Phaser.GameObjects.Graphics, px: number, py: number, rel: number): void {
+  private drawVillaA(g: Phaser.GameObjects.Graphics, px: number, py: number, rel: number, tx: number, ty: number): void {
     const rx = rel % 4, ry = Math.floor(rel / 4);
+    const h = hash(tx, ty);
     const ROOF = 0xcc6655, ROOF_HI = 0xdd7766, ROOF_EDGE = 0xbb5544;
     const WALL = 0xf5e8d0, WALL_TRIM = 0xe8d8c0;
     const WIN = 0xccddee, WIN_FRAME = 0x8a7a6a;
@@ -404,7 +452,17 @@ export class TownRenderer {
       g.fillStyle(ROOF_EDGE); g.fillRect(px, py + T - 4, T, 4);
       if (rx === 0) { g.fillStyle(ROOF_EDGE); g.fillRect(px, py, 4, T); } // left edge
       if (rx === 3) { g.fillStyle(ROOF_EDGE); g.fillRect(px + T - 4, py, 4, T); } // right edge
-      if (rx === 0) { g.fillStyle(0x8a7a6a); g.fillRect(px + 6, py, 6, 10); g.fillStyle(0x7a6a5a); g.fillRect(px + 7, py, 4, 8); } // chimney
+      if (rx === 0) {
+        // Chimney with smoke effect
+        g.fillStyle(0x8a7a6a); g.fillRect(px + 6, py, 6, 10);
+        g.fillStyle(0x7a6a5a); g.fillRect(px + 7, py, 4, 8);
+        // Smoke puffs (simple static particles)
+        if (h % 3 === 0) {
+          g.fillStyle(0xcccccc, 0.3); g.fillCircle(px + 9, py - 4, 3);
+          g.fillStyle(0xdddddd, 0.2); g.fillCircle(px + 7, py - 8, 2);
+          g.fillStyle(0xeeeeee, 0.15); g.fillCircle(px + 10, py - 11, 2);
+        }
+      }
       // Ridge line
       g.fillStyle(0xbb5544, 0.5); g.fillRect(px, py + 10, T, 2);
     } else if (ry === 1) { // Wall row
@@ -437,8 +495,9 @@ export class TownRenderer {
   }
 
   // ─── Villa Type B (cool: slate blue roof, light gray walls) ─
-  private drawVillaB(g: Phaser.GameObjects.Graphics, px: number, py: number, rel: number): void {
+  private drawVillaB(g: Phaser.GameObjects.Graphics, px: number, py: number, rel: number, tx: number, ty: number): void {
     const rx = rel % 4, ry = Math.floor(rel / 4);
+    const h = hash(tx, ty);
     const ROOF = 0x6688aa, ROOF_HI = 0x7799bb, ROOF_EDGE = 0x557799;
     const WALL = 0xe0e8f0, WALL_TRIM = 0xd0d8e0;
     const WIN = 0xccddee, WIN_FRAME = 0x7a8a9a;
@@ -450,7 +509,16 @@ export class TownRenderer {
       g.fillStyle(ROOF_EDGE); g.fillRect(px, py + T - 4, T, 4);
       if (rx === 0) { g.fillStyle(ROOF_EDGE); g.fillRect(px, py, 4, T); }
       if (rx === 3) { g.fillStyle(ROOF_EDGE); g.fillRect(px + T - 4, py, 4, T); }
-      if (rx === 3) { g.fillStyle(0x7a8a9a); g.fillRect(px + T - 12, py, 6, 10); g.fillStyle(0x6a7a8a); g.fillRect(px + T - 11, py, 4, 8); }
+      if (rx === 3) {
+        // Chimney with smoke effect
+        g.fillStyle(0x7a8a9a); g.fillRect(px + T - 12, py, 6, 10);
+        g.fillStyle(0x6a7a8a); g.fillRect(px + T - 11, py, 4, 8);
+        // Smoke puffs
+        if (h % 4 === 0) {
+          g.fillStyle(0xcccccc, 0.25); g.fillCircle(px + T - 9, py - 3, 2.5);
+          g.fillStyle(0xdddddd, 0.18); g.fillCircle(px + T - 11, py - 7, 2);
+        }
+      }
       g.fillStyle(ROOF_EDGE, 0.5); g.fillRect(px, py + 10, T, 2);
     } else if (ry === 1) {
       g.fillStyle(WALL); g.fillRect(px, py, T, T);
@@ -478,6 +546,63 @@ export class TownRenderer {
       }
       if (rx === 0) { g.fillStyle(0x8a9aaa); g.fillRect(px, py, 2, T); }
       if (rx === 3) { g.fillStyle(0x8a9aaa); g.fillRect(px + T - 2, py, 2, T); }
+    }
+  }
+
+  // ─── Villa Type C (green: forest green roof, warm beige walls) ─
+  private drawVillaC(g: Phaser.GameObjects.Graphics, px: number, py: number, rel: number, tx: number, ty: number): void {
+    const rx = rel % 4, ry = Math.floor(rel / 4);
+    const h = hash(tx, ty);
+    const ROOF = 0x4a8a5a, ROOF_HI = 0x5a9a6a, ROOF_EDGE = 0x3a7a4a;
+    const WALL = 0xf0e8d8, WALL_TRIM = 0xe0d8c8;
+    const WIN = 0xccddee, WIN_FRAME = 0x7a8a7a;
+    const DOOR = 0x7b5236, KNOB = 0xccaa44;
+
+    if (ry === 0) { // Roof row
+      g.fillStyle(ROOF); g.fillRect(px, py, T, T);
+      g.fillStyle(ROOF_HI); g.fillRect(px, py + 2, T, T - 8);
+      g.fillStyle(ROOF_EDGE); g.fillRect(px, py + T - 4, T, 4);
+      if (rx === 0) { g.fillStyle(ROOF_EDGE); g.fillRect(px, py, 4, T); }
+      if (rx === 3) { g.fillStyle(ROOF_EDGE); g.fillRect(px + T - 4, py, 4, T); }
+      // Chimney on center-left
+      if (rx === 1) {
+        g.fillStyle(0x8a8a7a); g.fillRect(px + 4, py, 6, 10);
+        g.fillStyle(0x7a7a6a); g.fillRect(px + 5, py, 4, 8);
+        // Smoke puffs
+        if (h % 2 === 0) {
+          g.fillStyle(0xcccccc, 0.28); g.fillCircle(px + 7, py - 4, 2.5);
+          g.fillStyle(0xdddddd, 0.2); g.fillCircle(px + 5, py - 8, 2);
+          g.fillStyle(0xeeeeee, 0.12); g.fillCircle(px + 8, py - 12, 1.5);
+        }
+      }
+      // Ridge line
+      g.fillStyle(ROOF_EDGE, 0.5); g.fillRect(px, py + 10, T, 2);
+    } else if (ry === 1) { // Wall row
+      g.fillStyle(WALL); g.fillRect(px, py, T, T);
+      g.fillStyle(WALL_TRIM); g.fillRect(px, py, T, 2);
+      if (rx === 0 || rx === 3) {
+        g.fillStyle(WIN); g.fillRect(px + 8, py + 8, 16, 14);
+        g.fillStyle(WIN_FRAME); g.fillRect(px + 8, py + 8, 16, 1); g.fillRect(px + 8, py + 8, 1, 14); g.fillRect(px + 23, py + 8, 1, 14); g.fillRect(px + 8, py + 21, 16, 1);
+        g.fillStyle(0x000000, 0.1); g.fillRect(px + 16, py + 8, 1, 14); g.fillRect(px + 8, py + 14, 16, 1);
+      } else {
+        g.fillStyle(WALL_TRIM, 0.3); g.fillRect(px + 4, py + 10, T - 8, 12);
+      }
+      if (rx === 0) { g.fillStyle(0x8a9a8a); g.fillRect(px, py, 2, T); }
+      if (rx === 3) { g.fillStyle(0x8a9a8a); g.fillRect(px + T - 2, py, 2, T); }
+    } else { // Ground row
+      g.fillStyle(WALL); g.fillRect(px, py, T, T);
+      g.fillStyle(0xc8c0b0); g.fillRect(px, py + T - 4, T, 4); // foundation
+      if (rx === 1) { // door
+        g.fillStyle(DOOR); g.fillRect(px + 6, py + 2, 20, T - 6);
+        g.fillStyle(0x6a4228, 0.4); g.fillRect(px + 10, py + 5, 12, 10); g.fillRect(px + 10, py + 18, 12, 6);
+        g.fillStyle(KNOB); g.fillRect(px + 21, py + 16, 3, 3);
+      } else if (rx === 2) { // window
+        g.fillStyle(WIN); g.fillRect(px + 6, py + 4, 20, 16);
+        g.fillStyle(WIN_FRAME); g.fillRect(px + 6, py + 4, 20, 1); g.fillRect(px + 6, py + 19, 20, 1); g.fillRect(px + 6, py + 4, 1, 16); g.fillRect(px + 25, py + 4, 1, 16);
+        g.fillStyle(0x000000, 0.1); g.fillRect(px + 16, py + 4, 1, 16); g.fillRect(px + 6, py + 12, 20, 1);
+      }
+      if (rx === 0) { g.fillStyle(0x8a9a8a); g.fillRect(px, py, 2, T); }
+      if (rx === 3) { g.fillStyle(0x8a9a8a); g.fillRect(px + T - 2, py, 2, T); }
     }
   }
 
