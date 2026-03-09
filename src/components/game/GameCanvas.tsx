@@ -63,8 +63,8 @@ export default function GameCanvas({ className }: GameCanvasProps) {
         className={className}
         style={{
           width: '100%',
-          maxWidth: '800px',
-          aspectRatio: '4/3',
+          height: '100%',
+          minHeight: '400px',
         }}
       />
       <AgentDetailModal

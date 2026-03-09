@@ -142,6 +142,7 @@ export class TownScene extends Phaser.Scene {
 
     // Camera — show full map initially, allow zoom/pan
     this.cameras.main.setBounds(0, 0, this.mapWidth, this.mapHeight);
+    this.cameras.main.setBackgroundColor('#4a7c59'); // Grass green background
     this.fitMapToScreen();
 
     // Drag to pan (any mouse button)
@@ -166,7 +167,11 @@ export class TownScene extends Phaser.Scene {
     this.input.on('wheel', (_p: Phaser.Input.Pointer, _go: Phaser.GameObjects.GameObject[], _dx: number, dy: number) => {
       const cam = this.cameras.main;
       const delta = dy > 0 ? -0.15 : 0.15;
-      const targetZoom = Phaser.Math.Clamp(cam.zoom + delta, 0.5, 4);
+      // Calculate minimum zoom to fill viewport (no black edges)
+      const minZoomX = cam.width / this.mapWidth;
+      const minZoomY = cam.height / this.mapHeight;
+      const minZoom = Math.max(minZoomX, minZoomY, 0.5);
+      const targetZoom = Phaser.Math.Clamp(cam.zoom + delta, minZoom, 4);
       
       // Smooth zoom transition using tween
       this.tweens.add({
@@ -199,9 +204,10 @@ export class TownScene extends Phaser.Scene {
 
   private fitMapToScreen(): void {
     const cam = this.cameras.main;
+    // Use max to ensure map fills viewport (no black edges)
     const zoomX = cam.width / this.mapWidth;
     const zoomY = cam.height / this.mapHeight;
-    const zoom = Math.max(Math.min(zoomX, zoomY), 0.5);
+    const zoom = Math.max(zoomX, zoomY, 0.5);
     cam.setZoom(zoom);
     cam.centerOn(this.mapWidth / 2, this.mapHeight / 2);
   }

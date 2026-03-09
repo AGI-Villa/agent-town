@@ -21,6 +21,10 @@ function AgentDetailModal({ agent, onClose }: { agent: AgentStatus | null; onClo
     if (diffMin < 60) return `${diffMin}m ago`;
     return `${Math.floor(diffMin / 60)}h ago`;
   };
+  const formatTaskTime = (dateStr: string | null) => {
+    if (!dateStr) return '';
+    return new Date(dateStr).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  };
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/70" />
@@ -37,6 +41,18 @@ function AgentDetailModal({ agent, onClose }: { agent: AgentStatus | null; onClo
                 {agent.status.toUpperCase()}
               </span>
             </div>
+            <div className="flex items-center gap-3">
+              <span className="font-pixel text-[10px] text-[#c2c3c7]">DOING:</span>
+              <span className="font-pixel text-xs text-[#fff1e8]">
+                {agent.current_task?.description || (agent.status === 'online' ? 'Working' : 'Resting')}
+              </span>
+            </div>
+            {agent.current_task?.started_at && (
+              <div className="flex items-center gap-3">
+                <span className="font-pixel text-[10px] text-[#c2c3c7]">STARTED:</span>
+                <span className="font-pixel text-xs text-[#29adff]">{formatTaskTime(agent.current_task.started_at)}</span>
+              </div>
+            )}
             <div className="flex items-center gap-3">
               <span className="font-pixel text-[10px] text-[#c2c3c7]">LAST:</span>
               <span className="font-pixel text-xs text-[#fff1e8]">{formatTimeAgo(agent.last_event_at)}</span>
@@ -91,7 +107,7 @@ export default function TownCanvas({ initialArea }: TownCanvasProps) {
         type: Phaser.AUTO,
         pixelArt: true,
         roundPixels: true,
-        backgroundColor: '#1a1a2e',
+        backgroundColor: '#4a7c59', // Grass green to match map edges
         parent: 'town-container',
         scene: [TownScene],
         scale: {
