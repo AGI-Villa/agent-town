@@ -85,22 +85,24 @@ export class AgentSprite extends Phaser.GameObjects.Container {
     this.statusIndicator.setPosition(0, -SPRITE_CONFIG.frameHeight - 4);
     this.add(this.statusIndicator);
 
-    // Name label above head
+    // Name label above head - higher resolution for clarity
     const shortName = agentId.replace(/-/g, '').toUpperCase().slice(0, 5);
     this.nameLabel = scene.add.text(0, -SPRITE_CONFIG.frameHeight - 10, shortName, {
-      fontSize: '7px',
+      fontSize: '8px',
       fontFamily: '"Press Start 2P", monospace',
       color: '#ffffff',
       stroke: '#000000',
-      strokeThickness: 2,
+      strokeThickness: 3,
+      resolution: 2,
     });
     this.nameLabel.setOrigin(0.5, 1);
     this.add(this.nameLabel);
 
-    // Status icon above name (emoji-based)
+    // Status icon above name (emoji-based) - higher resolution
     this.statusIcon = scene.add.text(0, -SPRITE_CONFIG.frameHeight - 22, '☕', {
-      fontSize: '12px',
+      fontSize: '14px',
       fontFamily: 'Arial, sans-serif',
+      resolution: 2,
     });
     this.statusIcon.setOrigin(0.5, 1);
     this.add(this.statusIcon);
@@ -373,14 +375,19 @@ export class AgentSprite extends Phaser.GameObjects.Container {
     }
   }
 
-  // Play animation by state
+  // Play animation by state - only switch when state actually changes
   playAnimation(state: AnimationState): void {
-    if (this.currentState === state && this.sprite.anims.isPlaying) return;
+    // Skip if already playing this exact animation
+    const animKey = this.animManager.getAnimationKey(this.textureKey, state);
+    const currentAnimKey = this.sprite.anims.currentAnim?.key;
+    
+    if (currentAnimKey === animKey && this.sprite.anims.isPlaying) {
+      return;
+    }
     
     this.currentState = state;
     this.animManager.state = state;
     
-    const animKey = this.animManager.getAnimationKey(this.textureKey, state);
     this.sprite.play(animKey);
 
     // Update status indicator
@@ -489,6 +496,8 @@ export class AgentSprite extends Phaser.GameObjects.Container {
       this.wanderTimer.destroy();
       this.wanderTimer = null;
     }
+    // Kill any active wander tweens on this container
+    this.scene.tweens.killTweensOf(this);
   }
 
   private scheduleNextWander(): void {
@@ -538,6 +547,9 @@ export class AgentSprite extends Phaser.GameObjects.Container {
       const distance = Math.sqrt(dx * dx + dy * dy);
       const duration = Math.max(600, distance * 20); // Slower, more natural pace
       
+      // Kill any existing wander tweens on this sprite before starting new one
+      this.scene.tweens.killTweensOf(this);
+      
       // Tween to target position
       this.scene.tweens.add({
         targets: this,
@@ -549,8 +561,10 @@ export class AgentSprite extends Phaser.GameObjects.Container {
           this.updateDepth();
         },
         onComplete: () => {
-          this.idle();
-          this.scheduleNextWander();
+          if (this.isWandering) {
+            this.idle();
+            this.scheduleNextWander();
+          }
         },
       });
     } else {

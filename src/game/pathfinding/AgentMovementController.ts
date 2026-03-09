@@ -199,25 +199,59 @@ export class AgentMovementController {
     return dy > 0 ? 'down' : 'up';
   }
 
-  // Stop current movement
+  // Stop current movement - smoothly complete to nearest tile instead of snapping
   stopMovement(): void {
     this.isMoving = false;
     this.isStepInProgress = false;
     
     if (this.currentTween) {
+      const progress = this.currentTween.progress;
+      
+      // Stop the current tween
       this.currentTween.stop();
       this.currentTween = undefined;
+      
+      if (progress > 0.5) {
+        // More than halfway - complete to the next tile smoothly
+        const nextNode = this.currentPath[this.pathIndex];
+        if (nextNode) {
+          const targetX = nextNode.x * TILE_SIZE + TILE_SIZE / 2;
+          const targetY = (nextNode.y + 1) * TILE_SIZE;
+          
+          this.scene.tweens.add({
+            targets: this.sprite,
+            x: targetX,
+            y: targetY,
+            duration: 100,
+            ease: 'Linear',
+            onComplete: () => {
+              this.currentTileX = nextNode.x;
+              this.currentTileY = nextNode.y;
+              this.sprite.idle();
+            },
+          });
+        } else {
+          this.sprite.idle();
+        }
+      } else {
+        // Less than halfway - go back to current tile smoothly
+        const currentTilePixelX = this.currentTileX * TILE_SIZE + TILE_SIZE / 2;
+        const currentTilePixelY = (this.currentTileY + 1) * TILE_SIZE;
+        
+        this.scene.tweens.add({
+          targets: this.sprite,
+          x: currentTilePixelX,
+          y: currentTilePixelY,
+          duration: 100,
+          ease: 'Linear',
+          onComplete: () => {
+            this.sprite.idle();
+          },
+        });
+      }
+    } else {
+      this.sprite.idle();
     }
-
-    // Snap to nearest tile center to prevent floating between tiles
-    const nearestTileX = Math.round((this.sprite.x - TILE_SIZE / 2) / TILE_SIZE);
-    const nearestTileY = Math.round(this.sprite.y / TILE_SIZE) - 1;
-    this.sprite.setPosition(
-      nearestTileX * TILE_SIZE + TILE_SIZE / 2,
-      (nearestTileY + 1) * TILE_SIZE
-    );
-    this.currentTileX = nearestTileX;
-    this.currentTileY = nearestTileY;
 
     // Release previously occupied tile if different from current
     if (this.targetTileX !== this.currentTileX || this.targetTileY !== this.currentTileY) {
@@ -238,15 +272,42 @@ export class AgentMovementController {
     return Math.max(0, this.currentPath.length - this.pathIndex);
   }
 
-  // Set position directly (for initialization)
-  setPosition(tileX: number, tileY: number): void {
-    this.currentTileX = tileX;
-    this.currentTileY = tileY;
-    this.sprite.setPosition(
-      tileX * TILE_SIZE + TILE_SIZE / 2,
-      (tileY + 1) * TILE_SIZE
-    );
-    this.sprite.updateDepth();
+  // Set position directly (for initialization only, not during gameplay)
+  setPosition(tileX: number, tileY: number, animate: boolean = false): void {
+    // Stop any existing movement first
+    if (this.currentTween) {
+      this.currentTween.stop();
+      this.currentTween = undefined;
+    }
+    this.isMoving = false;
+    this.isStepInProgress = false;
+    
+    const targetPixelX = tileX * TILE_SIZE + TILE_SIZE / 2;
+    const targetPixelY = (tileY + 1) * TILE_SIZE;
+    
+    if (animate && this.scene) {
+      // Smooth transition for position updates during gameplay
+      this.scene.tweens.add({
+        targets: this.sprite,
+        x: targetPixelX,
+        y: targetPixelY,
+        duration: 200,
+        ease: 'Linear',
+        onUpdate: () => {
+          this.sprite.updateDepth();
+        },
+        onComplete: () => {
+          this.currentTileX = tileX;
+          this.currentTileY = tileY;
+        },
+      });
+    } else {
+      // Direct set for initialization
+      this.currentTileX = tileX;
+      this.currentTileY = tileY;
+      this.sprite.setPosition(targetPixelX, targetPixelY);
+      this.sprite.updateDepth();
+    }
   }
 
   // Destroy controller
