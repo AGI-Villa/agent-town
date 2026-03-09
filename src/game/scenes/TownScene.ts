@@ -12,22 +12,34 @@ type AgentClickCallback = (agentId: string) => void;
 type AreaChangeCallback = (area: TownArea) => void;
 type ViewportChangeCallback = (x: number, y: number, w: number, h: number) => void;
 type TimeChangeCallback = (hour: number, minute: number, speed: TimeSpeed) => void;
+type AgentDetailCallback = (agentId: string, details: AgentDetails) => void;
+
+interface AgentDetails {
+  agentId: string;
+  activity: string;
+  location: string;
+  mood: string;
+  status: string;
+}
 
 let agentClickCallback: AgentClickCallback | null = null;
 let areaChangeCallback: AreaChangeCallback | null = null;
 let viewportChangeCallback: ViewportChangeCallback | null = null;
 let timeChangeCallback: TimeChangeCallback | null = null;
+let agentDetailCallback: AgentDetailCallback | null = null;
 
 export function setTownCallbacks(callbacks: {
   onAgentClick?: AgentClickCallback | null;
   onAreaChange?: AreaChangeCallback | null;
   onViewportChange?: ViewportChangeCallback | null;
   onTimeChange?: TimeChangeCallback | null;
+  onAgentDetail?: AgentDetailCallback | null;
 }): void {
   agentClickCallback = callbacks.onAgentClick ?? null;
   areaChangeCallback = callbacks.onAreaChange ?? null;
   viewportChangeCallback = callbacks.onViewportChange ?? null;
   timeChangeCallback = callbacks.onTimeChange ?? null;
+  agentDetailCallback = callbacks.onAgentDetail ?? null;
 }
 
 const AREA_KEYS: TownArea[] = ['office', 'park', 'plaza', 'coffeeShop', 'store', 'residential'];
@@ -54,6 +66,16 @@ export class TownScene extends Phaser.Scene {
   private pets: PetSprite[] = [];
   private mapWidth = 0;
   private mapHeight = 0;
+  
+  // Minimap
+  private minimapContainer!: Phaser.GameObjects.Container;
+  private minimapGraphics!: Phaser.GameObjects.Graphics;
+  private minimapAgentDots: Map<string, Phaser.GameObjects.Graphics> = new Map();
+  private minimapViewport!: Phaser.GameObjects.Graphics;
+  
+  // Agent detail panel
+  private detailPanel: Phaser.GameObjects.Container | null = null;
+  private selectedAgentId: string | null = null;
 
   constructor() {
     super({ key: 'TownScene' });
@@ -130,12 +152,20 @@ export class TownScene extends Phaser.Scene {
     });
     this.input.on('pointerup', () => { this.isDragging = false; });
 
-    // Scroll to zoom
+    // Scroll to zoom with smooth transition
     this.input.on('wheel', (_p: Phaser.Input.Pointer, _go: Phaser.GameObjects.GameObject[], _dx: number, dy: number) => {
       const cam = this.cameras.main;
       const delta = dy > 0 ? -0.15 : 0.15;
-      cam.setZoom(Phaser.Math.Clamp(cam.zoom + delta, 0.5, 4));
-      this.notifyViewportChange();
+      const targetZoom = Phaser.Math.Clamp(cam.zoom + delta, 0.5, 4);
+      
+      // Smooth zoom transition using tween
+      this.tweens.add({
+        targets: cam,
+        zoom: targetZoom,
+        duration: 150,
+        ease: 'Sine.easeOut',
+        onUpdate: () => this.notifyViewportChange(),
+      });
     });
 
     // Keyboard shortcuts
@@ -150,6 +180,9 @@ export class TownScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-FORWARD_SLASH', () => this.setTimeSpeed(60));
     this.input.keyboard?.on('keydown-ZERO', () => this.fitMapToScreen());
 
+    // Create minimap
+    this.createMinimap();
+
     this.spawnPets();
     this.startPolling();
   }
@@ -161,6 +194,268 @@ export class TownScene extends Phaser.Scene {
     const zoom = Math.max(Math.min(zoomX, zoomY), 0.5);
     cam.setZoom(zoom);
     cam.centerOn(this.mapWidth / 2, this.mapHeight / 2);
+  }
+
+  // Create minimap in bottom-right corner
+  private createMinimap(): void {
+    const minimapWidth = 120;
+    const minimapHeight = 90;
+    const padding = 10;
+    
+    // Container for minimap (fixed to screen)
+    this.minimapContainer = this.add.container(0, 0);
+    this.minimapContainer.setScrollFactor(0);
+    this.minimapContainer.setDepth(250);
+    
+    // Position in bottom-right
+    const posX = this.cameras.main.width - minimapWidth - padding;
+    const posY = this.cameras.main.height - minimapHeight - padding;
+    this.minimapContainer.setPosition(posX, posY);
+    
+    // Background
+    const bg = this.add.graphics();
+    bg.fillStyle(0x000000, 0.6);
+    bg.fillRoundedRect(0, 0, minimapWidth, minimapHeight, 4);
+    bg.lineStyle(1, 0xffffff, 0.3);
+    bg.strokeRoundedRect(0, 0, minimapWidth, minimapHeight, 4);
+    this.minimapContainer.add(bg);
+    
+    // Map graphics
+    this.minimapGraphics = this.add.graphics();
+    this.minimapContainer.add(this.minimapGraphics);
+    
+    // Draw simplified map
+    this.drawMinimapTerrain(minimapWidth, minimapHeight);
+    
+    // Viewport indicator
+    this.minimapViewport = this.add.graphics();
+    this.minimapContainer.add(this.minimapViewport);
+    
+    // Label
+    const label = this.add.text(minimapWidth / 2, 6, 'MAP', {
+      fontSize: '6px',
+      fontFamily: '"Press Start 2P", monospace',
+      color: '#ffffff',
+    });
+    label.setOrigin(0.5, 0);
+    label.setAlpha(0.6);
+    this.minimapContainer.add(label);
+  }
+
+  private drawMinimapTerrain(width: number, height: number): void {
+    const scaleX = width / this.mapWidth;
+    const scaleY = height / this.mapHeight;
+    
+    // Draw areas as colored rectangles
+    const areaColors: Record<string, number> = {
+      office: 0x8898b0,
+      park: 0x7ab87a,
+      plaza: 0xc8b898,
+      coffeeShop: 0xb8885a,
+      store: 0xe0dcd0,
+      residential: 0x9a8a70,
+    };
+    
+    for (const [key, area] of Object.entries(TOWN_MAP.areas)) {
+      const color = areaColors[key] ?? 0x888888;
+      this.minimapGraphics.fillStyle(color, 0.7);
+      this.minimapGraphics.fillRect(
+        area.x * TILE_SIZE * scaleX,
+        area.y * TILE_SIZE * scaleY,
+        area.width * TILE_SIZE * scaleX,
+        area.height * TILE_SIZE * scaleY
+      );
+    }
+    
+    // Draw roads
+    this.minimapGraphics.fillStyle(0x8a8890, 0.8);
+    // Main E-W road
+    this.minimapGraphics.fillRect(2 * TILE_SIZE * scaleX, 13 * TILE_SIZE * scaleY, 53 * TILE_SIZE * scaleX, 2 * TILE_SIZE * scaleY);
+    // Main N-S avenue
+    this.minimapGraphics.fillRect(20 * TILE_SIZE * scaleX, 1 * TILE_SIZE * scaleY, 2 * TILE_SIZE * scaleX, 32 * TILE_SIZE * scaleY);
+    
+    // Draw water (river)
+    this.minimapGraphics.fillStyle(0x3a8abb, 0.8);
+    this.minimapGraphics.fillRect(0, 35 * TILE_SIZE * scaleY, width, 3 * TILE_SIZE * scaleY);
+  }
+
+  private updateMinimapViewport(): void {
+    if (!this.minimapViewport) return;
+    
+    const cam = this.cameras.main;
+    const minimapWidth = 120;
+    const minimapHeight = 90;
+    const scaleX = minimapWidth / this.mapWidth;
+    const scaleY = minimapHeight / this.mapHeight;
+    
+    this.minimapViewport.clear();
+    this.minimapViewport.lineStyle(1, 0xffff00, 0.8);
+    this.minimapViewport.strokeRect(
+      cam.scrollX * scaleX,
+      cam.scrollY * scaleY,
+      (cam.width / cam.zoom) * scaleX,
+      (cam.height / cam.zoom) * scaleY
+    );
+  }
+
+  private updateMinimapAgents(): void {
+    const minimapWidth = 120;
+    const minimapHeight = 90;
+    const scaleX = minimapWidth / this.mapWidth;
+    const scaleY = minimapHeight / this.mapHeight;
+    
+    // Update or create dots for each agent
+    for (const [agentId, agent] of this.agents) {
+      let dot = this.minimapAgentDots.get(agentId);
+      if (!dot) {
+        dot = this.add.graphics();
+        this.minimapContainer.add(dot);
+        this.minimapAgentDots.set(agentId, dot);
+      }
+      
+      dot.clear();
+      dot.fillStyle(0xff4444, 1);
+      dot.fillCircle(agent.x * scaleX, agent.y * scaleY, 2);
+    }
+    
+    // Remove dots for agents that no longer exist
+    for (const [agentId, dot] of this.minimapAgentDots) {
+      if (!this.agents.has(agentId)) {
+        dot.destroy();
+        this.minimapAgentDots.delete(agentId);
+      }
+    }
+  }
+
+  // Show agent detail panel
+  private showAgentDetailPanel(agentId: string): void {
+    this.hideAgentDetailPanel();
+    
+    const agent = this.agents.get(agentId);
+    const data = this.agentData.get(agentId);
+    if (!agent || !data) return;
+    
+    this.selectedAgentId = agentId;
+    
+    // Create panel container (fixed to screen, near agent)
+    this.detailPanel = this.add.container(0, 0);
+    this.detailPanel.setDepth(300);
+    
+    // Convert agent world position to screen position
+    const screenX = (agent.x - this.cameras.main.scrollX) * this.cameras.main.zoom;
+    const screenY = (agent.y - this.cameras.main.scrollY) * this.cameras.main.zoom;
+    
+    // Panel dimensions
+    const panelWidth = 140;
+    const panelHeight = 80;
+    
+    // Position panel above agent, clamped to screen
+    let panelX = screenX - panelWidth / 2;
+    let panelY = screenY - panelHeight - 40;
+    panelX = Math.max(10, Math.min(this.cameras.main.width - panelWidth - 10, panelX));
+    panelY = Math.max(10, Math.min(this.cameras.main.height - panelHeight - 10, panelY));
+    
+    this.detailPanel.setPosition(panelX, panelY);
+    this.detailPanel.setScrollFactor(0);
+    
+    // Background
+    const bg = this.add.graphics();
+    bg.fillStyle(0x1a1a2e, 0.95);
+    bg.fillRoundedRect(0, 0, panelWidth, panelHeight, 6);
+    bg.lineStyle(2, 0x4a4a6a, 1);
+    bg.strokeRoundedRect(0, 0, panelWidth, panelHeight, 6);
+    this.detailPanel.add(bg);
+    
+    // Agent name
+    const shortName = agentId.replace(/-/g, ' ').slice(0, 15);
+    const nameText = this.add.text(panelWidth / 2, 8, shortName, {
+      fontSize: '8px',
+      fontFamily: '"Press Start 2P", monospace',
+      color: '#ffffff',
+    });
+    nameText.setOrigin(0.5, 0);
+    this.detailPanel.add(nameText);
+    
+    // Status with color indicator
+    const statusColor = data.status === 'online' ? '#44ff44' : data.status === 'idle' ? '#ffaa44' : '#888888';
+    const statusText = this.add.text(10, 24, `● ${data.status.toUpperCase()}`, {
+      fontSize: '7px',
+      fontFamily: '"Press Start 2P", monospace',
+      color: statusColor,
+    });
+    this.detailPanel.add(statusText);
+    
+    // Activity
+    const activity = agent.getActivity();
+    const activityText = this.add.text(10, 38, `Activity: ${activity}`, {
+      fontSize: '6px',
+      fontFamily: 'monospace',
+      color: '#cccccc',
+    });
+    this.detailPanel.add(activityText);
+    
+    // Location
+    const location = agent.getLocation();
+    const locationText = this.add.text(10, 52, `Location: ${location}`, {
+      fontSize: '6px',
+      fontFamily: 'monospace',
+      color: '#cccccc',
+    });
+    this.detailPanel.add(locationText);
+    
+    // Mood
+    const mood = agent.getMood();
+    const moodEmoji = mood === 'happy' ? '😊' : mood === 'focused' ? '🎯' : mood === 'tired' ? '😴' : '😐';
+    const moodText = this.add.text(10, 66, `Mood: ${moodEmoji} ${mood}`, {
+      fontSize: '6px',
+      fontFamily: 'monospace',
+      color: '#cccccc',
+    });
+    this.detailPanel.add(moodText);
+    
+    // Animate panel appearance
+    this.detailPanel.setScale(0);
+    this.tweens.add({
+      targets: this.detailPanel,
+      scaleX: 1,
+      scaleY: 1,
+      duration: 150,
+      ease: 'Back.easeOut',
+    });
+    
+    // Notify callback
+    if (agentDetailCallback) {
+      agentDetailCallback(agentId, {
+        agentId,
+        activity,
+        location,
+        mood,
+        status: data.status,
+      });
+    }
+    
+    // Auto-hide after 5 seconds
+    this.time.delayedCall(5000, () => {
+      if (this.selectedAgentId === agentId) {
+        this.hideAgentDetailPanel();
+      }
+    });
+  }
+
+  private hideAgentDetailPanel(): void {
+    if (this.detailPanel) {
+      this.tweens.add({
+        targets: this.detailPanel,
+        scaleX: 0,
+        scaleY: 0,
+        duration: 100,
+        onComplete: () => {
+          this.detailPanel?.destroy();
+          this.detailPanel = null;
+        },
+      });
+    }
+    this.selectedAgentId = null;
   }
 
   private cycleSpeed(): void {
@@ -247,9 +542,30 @@ export class TownScene extends Phaser.Scene {
       agentData.agent_id
     );
     agent.setInteractive(new Phaser.Geom.Rectangle(-8, -24, 16, 24), Phaser.Geom.Rectangle.Contains);
-    agent.on('pointerdown', () => agentClickCallback?.(agentData.agent_id));
+    agent.on('pointerdown', () => {
+      agentClickCallback?.(agentData.agent_id);
+      this.showAgentDetailPanel(agentData.agent_id);
+    });
     agent.on('pointerover', () => agent.setScale(1.1));
     agent.on('pointerout', () => agent.setScale(1));
+
+    // Set agent location and activity
+    agent.setLocation(area.name);
+    agent.setActivity(agentData.status === 'online' ? 'working' : 'resting');
+    agent.setMood(agentData.status === 'online' ? 'focused' : 'neutral');
+    
+    // Set wander bounds for idle animation
+    agent.setWanderBounds({
+      x: area.x * TILE_SIZE,
+      y: area.y * TILE_SIZE,
+      width: area.width * TILE_SIZE,
+      height: area.height * TILE_SIZE,
+    });
+    
+    // Face towards center of area (simulating facing desk/workstation)
+    const areaCenterX = (area.x + area.width / 2) * TILE_SIZE;
+    const areaCenterY = (area.y + area.height / 2) * TILE_SIZE;
+    agent.faceTowards(areaCenterX, areaCenterY);
 
     const controller = new AgentMovementController(this, agent, this.pathfinder);
     controller.setPosition(tileX, tileY);
@@ -269,11 +585,27 @@ export class TownScene extends Phaser.Scene {
   private applyAgentStatus(agent: AgentSprite, status: string): void {
     switch (status) {
       case 'online':
-        agent.work(); agent.setVisible(true); agent.setAlpha(1); break;
+        agent.work();
+        agent.setVisible(true);
+        agent.setAlpha(1);
+        agent.setActivity('working');
+        agent.setMood('focused');
+        agent.stopWandering();
+        break;
       case 'idle':
-        agent.rest(); agent.setVisible(true); agent.setAlpha(1); break;
+        agent.rest();
+        agent.setVisible(true);
+        agent.setAlpha(1);
+        agent.setActivity('resting');
+        agent.setMood('neutral');
+        agent.startWandering(); // Start idle wandering
+        break;
       default:
-        agent.idle(); agent.setAlpha(0.6);
+        agent.idle();
+        agent.setAlpha(0.6);
+        agent.setActivity('offline');
+        agent.setMood('neutral');
+        agent.stopWandering();
     }
   }
 
@@ -303,6 +635,10 @@ export class TownScene extends Phaser.Scene {
     this.agents.forEach(agent => agent.updateDepth());
     for (const pet of this.pets) pet.update(_time, delta);
     this.checkPetInteractions();
+    
+    // Update minimap
+    this.updateMinimapViewport();
+    this.updateMinimapAgents();
   }
 
   private spawnPets(): void {
@@ -349,6 +685,13 @@ export class TownScene extends Phaser.Scene {
     this.socialSystem.destroy();
     this.performanceManager.destroy();
     this.touchInput.destroy();
+    
+    // Clean up minimap
+    this.minimapAgentDots.forEach(dot => dot.destroy());
+    this.minimapAgentDots.clear();
+    
+    // Clean up detail panel
+    this.hideAgentDetailPanel();
   }
 
   getPerformanceStats() { return this.performanceManager.getStats(); }

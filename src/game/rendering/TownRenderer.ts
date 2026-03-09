@@ -19,12 +19,42 @@ export interface MapData {
 export class TownRenderer {
   private scene: Phaser.Scene;
   private map: MapData;
+  private groundGraphics: Phaser.GameObjects.Graphics | null = null;
+  private furnitureGraphics: Phaser.GameObjects.Graphics | null = null;
+  private lastVisibleBounds: { x1: number; y1: number; x2: number; y2: number } | null = null;
+  private cullingEnabled = true;
+  
   constructor(scene: Phaser.Scene, map: MapData) { this.scene = scene; this.map = map; }
 
   renderAll(): void {
     this.renderGround();
     this.renderFurniture();
     this.renderAreaLabels();
+  }
+
+  // Enable/disable camera culling
+  setCullingEnabled(enabled: boolean): void {
+    this.cullingEnabled = enabled;
+  }
+
+  // Get visible tile bounds from camera
+  private getVisibleTileBounds(): { x1: number; y1: number; x2: number; y2: number } {
+    const cam = this.scene.cameras.main;
+    const padding = 2; // Extra tiles for smooth scrolling
+    
+    const x1 = Math.max(0, Math.floor(cam.scrollX / T) - padding);
+    const y1 = Math.max(0, Math.floor(cam.scrollY / T) - padding);
+    const x2 = Math.min(this.map.width, Math.ceil((cam.scrollX + cam.width / cam.zoom) / T) + padding);
+    const y2 = Math.min(this.map.height, Math.ceil((cam.scrollY + cam.height / cam.zoom) / T) + padding);
+    
+    return { x1, y1, x2, y2 };
+  }
+
+  // Check if bounds have changed significantly
+  private boundsChanged(newBounds: { x1: number; y1: number; x2: number; y2: number }): boolean {
+    if (!this.lastVisibleBounds) return true;
+    const { x1, y1, x2, y2 } = this.lastVisibleBounds;
+    return newBounds.x1 !== x1 || newBounds.y1 !== y1 || newBounds.x2 !== x2 || newBounds.y2 !== y2;
   }
 
   // ═══════════════════════════════════════════════════════════
