@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { NotificationBell } from '@/components/notifications';
-import { MusicControl } from '@/components/audio';
+import { YouTubeBGM } from '@/components/audio';
 
 const TownCanvas = dynamic(
   () => import('@/components/game/TownCanvas'),
@@ -42,9 +42,9 @@ export default function TownPage() {
             </p>
           </div>
 
-          {/* Music control - bottom left */}
+          {/* Music control - bottom left (Stardew Valley OST via YouTube) */}
           <div className="absolute bottom-3 left-3 z-50">
-            <MusicControl />
+            <YouTubeBGM />
           </div>
         </>
       )}

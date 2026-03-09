@@ -18,24 +18,28 @@ function extractEventSummary(eventType: string, payload: Record<string, unknown>
 
   switch (eventType) {
     case "sessions_spawn": {
+      const task = payload?.task as string;
+      if (task) {
+        return `正在派发任务: ${task.slice(0, 50)}${task.length > 50 ? "..." : ""}`;
+      }
       const target = payload?.agentId || payload?.target || "子任务";
       return `派发任务给 ${target}`;
     }
-    case "tool_call": {
-      const tool = payload?.tool || payload?.name || "工具";
-      return `执行 ${tool}`;
+    case "tool_call":
+    case "toolResult": {
+      const toolName = (payload?.name || payload?.tool || "unknown") as string;
+      return `正在执行: ${toolName}`;
     }
     case "message": {
       const role = payload?.role as string;
-      if (role === "assistant") {
-        const content = payload?.content as string;
-        if (content) return content.slice(0, 100) + (content.length > 100 ? "..." : "");
-        return "回复消息";
-      }
+      const content = payload?.content as string;
       if (role === "user") {
-        const content = payload?.content as string;
-        if (content) return `Darren: ${content.slice(0, 80)}${content.length > 80 ? "..." : ""}`;
+        if (content) return `收到消息: ${content.slice(0, 50)}${content.length > 50 ? "..." : ""}`;
         return "收到消息";
+      }
+      if (role === "assistant") {
+        if (content) return `正在回复: ${content.slice(0, 50)}${content.length > 50 ? "..." : ""}`;
+        return "回复消息";
       }
       return "消息交互";
     }
@@ -46,10 +50,23 @@ function extractEventSummary(eventType: string, payload: Record<string, unknown>
       if (result) return result.slice(0, 80) + (result.length > 80 ? "..." : "");
       return "工具执行完成";
     }
-    case "code_edit":
-    case "file_write": {
-      const file = payload?.file || payload?.path || "文件";
-      return `编辑 ${file}`;
+    case "file_write":
+    case "code_edit": {
+      const file = (payload?.path || payload?.file || "文件") as string;
+      return `正在编辑: ${file}`;
+    }
+    case "exec": {
+      const command = payload?.command as string;
+      if (command) return `正在执行命令: ${command.slice(0, 30)}${command.length > 30 ? "..." : ""}`;
+      return "执行命令";
+    }
+    case "gh_pr_create":
+    case "gh_pr_merge": {
+      const title = payload?.title as string;
+      const url = payload?.url as string;
+      if (title) return `正在处理 PR: ${title}`;
+      if (url) return `正在处理 PR: ${url}`;
+      return "处理 PR";
     }
     case "thinking":
       return "思考中...";
@@ -58,8 +75,30 @@ function extractEventSummary(eventType: string, payload: Record<string, unknown>
       if (content) return content.slice(0, 100) + (content.length > 100 ? "..." : "");
       return "生成回复";
     }
-    default:
+    case "web_search": {
+      const query = payload?.query as string;
+      if (query) return `正在搜索: ${query.slice(0, 40)}${query.length > 40 ? "..." : ""}`;
+      return "网络搜索";
+    }
+    case "web_fetch": {
+      const url = payload?.url as string;
+      if (url) return `正在获取: ${url.slice(0, 40)}${url.length > 40 ? "..." : ""}`;
+      return "获取网页";
+    }
+    case "read":
+    case "file_read": {
+      const path = (payload?.path || payload?.file_path) as string;
+      if (path) return `正在读取: ${path}`;
+      return "读取文件";
+    }
+    default: {
+      // 尝试从 payload 提取有意义的信息
+      const summary = payload?.summary as string;
+      const description = payload?.description as string;
+      if (summary) return summary.slice(0, 80);
+      if (description) return description.slice(0, 80);
       return `执行 ${eventType}`;
+    }
   }
 }
 
