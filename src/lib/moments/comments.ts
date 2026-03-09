@@ -8,24 +8,9 @@ import { getAdminClient } from "@/lib/supabase/admin";
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const DEFAULT_MODEL = "stepfun/step-3.5-flash:free";
 
-export const AGENT_NAMES: Record<string, string> = {
-  secretary: "刘亦菲",
-  cto: "扫地僧",
-  "dev-lead": "韦小宝",
-  cpo: "乔布斯",
-  uiux: "高圆圆",
-  cmo: "达达里奥",
-  culture: "李子柒",
-  hardware: "马斯克",
-  advisor: "巴菲特",
-};
+import { getAgentName, getAgentPersonality, getAllAgentIds } from "@/lib/agents";
 
-export const AGENT_PERSONALITIES: Record<string, string> = {
-  secretary: "温柔细心、善于协调、偶尔吐槽",
-  cto: "技术宅、熬夜冠军、低调实干",
-  "dev-lead": "活泼机灵、爱开玩笑、执行力强",
-  cpo: "追求完美、善于思考、有点强迫症",
-  uiux: "审美极佳、感性、注重细节",
+const AGENT_PERSONALITIES: Record<string, string> = {
   cmo: "外向热情、脑洞大、行动派",
   culture: "安静内敛、热爱传统文化、手艺人",
   hardware: "大胆激进、技术理想主义、偶尔发呆",
@@ -54,9 +39,9 @@ async function generateComment(
   momentContent: string,
   apiKey: string
 ): Promise<string> {
-  const commenterName = AGENT_NAMES[commenterId] || commenterId;
-  const commenterPersonality = AGENT_PERSONALITIES[commenterId] || "友善热情";
-  const authorName = AGENT_NAMES[momentAuthorId] || momentAuthorId;
+  const commenterName = getAgentName(commenterId);
+  const commenterPersonality = getAgentPersonality(commenterId) ?? AGENT_PERSONALITIES[commenterId] ?? "友善热情";
+  const authorName = getAgentName(momentAuthorId);
 
   const systemPrompt = `你是 Agent Town 小镇的居民 ${commenterName}。
 你的性格：${commenterPersonality}
@@ -117,7 +102,7 @@ async function generateComment(
  * Select random agents to comment on a moment (excluding the author).
  */
 function selectCommenters(authorId: string, count: number = 2): string[] {
-  const allAgents = Object.keys(AGENT_NAMES).filter((id) => id !== authorId);
+  const allAgents = getAllAgentIds().filter((id) => id !== authorId);
   const shuffled = allAgents.sort(() => Math.random() - 0.5);
   return shuffled.slice(0, Math.min(count, shuffled.length));
 }

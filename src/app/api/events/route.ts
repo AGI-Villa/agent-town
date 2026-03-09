@@ -1,17 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-const AGENT_NAMES: Record<string, { name: string; role: string }> = {
-  secretary: { name: "刘亦菲", role: "首席秘书��" },
-  cto: { name: "扫地僧", role: "首席技术官" },
-  "dev-lead": { name: "韦小宝", role: "研发主管" },
-  cpo: { name: "乔布斯", role: "首席产品官" },
-  uiux: { name: "高圆圆", role: "UI/UX 设计师" },
-  cmo: { name: "达达里奥", role: "首席营销官" },
-  culture: { name: "李子柒", role: "文化顾问" },
-  hardware: { name: "马斯克", role: "硬件专家" },
-  advisor: { name: "巴菲特", role: "战略顾问" },
-};
+import { getAgentName, getAgentRole } from "@/lib/agents";
 
 // Skip low-value agents
 const SKIP_AGENTS = new Set(["test-agent", "agent-001", "sync-agent", "main"]);
@@ -213,7 +203,7 @@ export async function GET(request: Request) {
       // Skip events without meaningful summary
       if (!summary) continue;
 
-      const agentInfo = AGENT_NAMES[ev.agent_id] || { name: ev.agent_id, role: "Agent" };
+      const agentInfo = { name: getAgentName(ev.agent_id), role: getAgentRole(ev.agent_id) ?? "Agent" };
 
       processedEvents.push({
         id: ev.id,
@@ -241,7 +231,7 @@ export async function GET(request: Request) {
       .filter((id) => !SKIP_AGENTS.has(id))
       .map((id) => ({
         id,
-        name: AGENT_NAMES[id]?.name || id,
+        name: getAgentName(id),
       }));
 
     return NextResponse.json({

@@ -51,9 +51,13 @@ async function triggerDailyGeneration() {
   try {
     // Use internal fetch to call the API route
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (process.env.ADMIN_API_KEY) {
+      headers["x-internal-token"] = process.env.ADMIN_API_KEY;
+    }
     const response = await fetch(`${baseUrl}/api/moments/generate-daily`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ date: today }),
     });
 
@@ -75,24 +79,70 @@ async function triggerDailyGeneration() {
   }
 }
 
+function printBanner() {
+  const c = {
+    reset: "\x1b[0m",
+    dim: "\x1b[2m",
+    green: "\x1b[32m",
+    cyan: "\x1b[36m",
+    yellow: "\x1b[33m",
+    magenta: "\x1b[35m",
+    bold: "\x1b[1m",
+    white: "\x1b[37m",
+  };
+
+  const banner = `
+${c.green}    ╭──────────────────────────────────────────────────╮
+    │                                                  │
+    │${c.cyan}${c.bold}       █████   ██████  ███████ ███    ██ ████████  ${c.green}│
+    │${c.cyan}${c.bold}      ██   ██ ██       ██      ████   ██    ██     ${c.green}│
+    │${c.cyan}${c.bold}      ███████ ██   ███ █████   ██ ██  ██    ██     ${c.green}│
+    │${c.cyan}${c.bold}      ██   ██ ██    ██ ██      ██  ██ ██    ██     ${c.green}│
+    │${c.cyan}${c.bold}      ██   ██  ██████  ███████ ██   ████    ██     ${c.green}│
+    │${c.yellow}${c.bold}      ████████  ██████  ██     ██ ███    ██        ${c.green}│
+    │${c.yellow}${c.bold}         ██    ██    ██ ██     ██ ████   ██        ${c.green}│
+    │${c.yellow}${c.bold}         ██    ██    ██ ██  █  ██ ██ ██  ██        ${c.green}│
+    │${c.yellow}${c.bold}         ██    ██    ██ ██ ███ ██ ██  ██ ██        ${c.green}│
+    │${c.yellow}${c.bold}         ██     ██████   ███ ███  ██   ████        ${c.green}│
+    │                                                  │
+    │${c.dim}${c.white}    🏘️  Give your AI agents a life beyond the     ${c.green}│
+    │${c.dim}${c.white}        terminal. Watch them live, work, and       ${c.green}│
+    │${c.dim}${c.white}        share their thoughts in a pixel-art town.  ${c.green}│
+    │                                                  │
+    │${c.magenta}     ♟ ♟        🏠 🏡 🏢        🌳 🐱 🐕          ${c.green}│
+    │                                                  │
+    ╰──────────────────────────────────────────────────╯${c.reset}
+`;
+
+  console.log(banner);
+}
+
 export async function register() {
-  // Only run on the Node.js server runtime, not on Edge or client
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    // Start the watcher service
+    printBanner();
+
+    const { discoverAgents } = await import("./lib/openclaw-discovery");
+    const agents = await discoverAgents();
+    const active = [...agents.values()].filter((a) => a.hasSessionLogs);
+    console.log(
+      `\x1b[2m  📡 Discovered ${agents.size} agents (${active.length} active) from OpenClaw\x1b[0m`
+    );
+
     const { watcherService } = await import("./lib/watcher");
     try {
       await watcherService.start();
-      console.log("[instrumentation] Watcher auto-started successfully");
+      console.log("  \x1b[32m✓\x1b[0m Watcher started");
     } catch (err) {
-      // Already running or failed — log but don't crash the server
-      console.warn("[instrumentation] Watcher start skipped:", err instanceof Error ? err.message : err);
+      console.warn("  \x1b[33m⚠\x1b[0m Watcher:", err instanceof Error ? err.message : err);
     }
 
-    // Start the daily moment scheduler
     try {
       await startDailyMomentScheduler();
+      console.log("  \x1b[32m✓\x1b[0m Daily moment scheduler started");
     } catch (err) {
-      console.warn("[instrumentation] Daily scheduler start failed:", err instanceof Error ? err.message : err);
+      console.warn("  \x1b[33m⚠\x1b[0m Scheduler:", err instanceof Error ? err.message : err);
     }
+
+    console.log("");
   }
 }

@@ -40,7 +40,6 @@ export function MomentList() {
       setHasMore(data.length === PAGE_SIZE);
       setError(null);
     } catch (err) {
-      if (!append) return;
       setError(err instanceof Error ? err.message : "Something went wrong");
     }
   }, []);

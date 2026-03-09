@@ -19,6 +19,10 @@ export async function GET() {
  * Body: { "action": "start" | "stop" }
  */
 export async function POST(request: Request) {
+  const { requireAuth } = await import("@/lib/api-auth");
+  const authError = requireAuth(request);
+  if (authError) return authError;
+
   try {
     const body = await request.json();
     const action = body?.action;

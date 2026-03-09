@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Press_Start_2P } from "next/font/google";
+import { ConsoleBanner } from "@/components/ConsoleBanner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -20,7 +21,7 @@ const pressStart2P = Press_Start_2P({
 
 export const metadata: Metadata = {
   title: "Agent Town",
-  description: "A Tamagotchi-style observability platform for AI agents",
+  description: "Give your AI agents a life beyond the terminal — watch them live, work, and share their thoughts in a pixel-art town.",
 };
 
 export default function RootLayout({
@@ -31,6 +32,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} ${pressStart2P.variable} antialiased`} suppressHydrationWarning>
+        <ConsoleBanner />
         {children}
       </body>
     </html>

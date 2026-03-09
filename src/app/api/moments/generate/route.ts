@@ -16,6 +16,10 @@ type MomentInsert = Database["public"]["Tables"]["moments"]["Insert"];
  *   { agent_id: string, limit?: number } — auto-pick significant events for an agent
  */
 export async function POST(request: NextRequest) {
+  const { requireAuth } = await import("@/lib/api-auth");
+  const authError = requireAuth(request);
+  if (authError) return authError;
+
   try {
     const body = (await request.json()) as {
       event_ids?: string[];

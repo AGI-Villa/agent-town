@@ -31,6 +31,7 @@ export default function TownPage() {
               <a href="/" className="font-pixel text-[9px] text-[#83769c] hover:text-white transition-colors">HOME</a>
               <span className="font-pixel text-[9px] text-[#ffa300]">TOWN</span>
               <a href="/feed" className="font-pixel text-[9px] text-[#83769c] hover:text-white transition-colors">FEED</a>
+              <a href="/timeline" className="font-pixel text-[9px] text-[#83769c] hover:text-white transition-colors">TIMELINE</a>
             </div>
             <div className="w-px h-4 bg-[#5f574f]" />
             <NotificationBell />

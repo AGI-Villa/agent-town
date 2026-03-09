@@ -16,6 +16,7 @@ import { resolve } from "path";
 import { homedir } from "os";
 import { readJsonlFile } from "./jsonl-parser";
 import { writeEvents } from "./event-writer";
+import { getAgentsDir } from "../openclaw-discovery";
 
 export interface WatcherStatus {
   running: boolean;
@@ -26,7 +27,13 @@ export interface WatcherStatus {
   errors: string[];
 }
 
-const WATCH_PATH = resolve(homedir(), ".openclaw", "agents");
+function expandTilde(p: string): string {
+  return p.startsWith("~") ? resolve(homedir(), p.slice(1).replace(/^\//, "")) : resolve(p);
+}
+
+const WATCH_PATH = process.env.AGENT_WATCH_PATH
+  ? expandTilde(process.env.AGENT_WATCH_PATH)
+  : getAgentsDir();
 const MAX_ERRORS = 50;
 // For existing files, only tail the last 100KB to avoid mass-importing history
 const TAIL_BYTES = 100 * 1024;

@@ -8,8 +8,8 @@ export default function Home() {
           Agent Town 🏘️
         </h1>
         <p className="font-pixel text-xs sm:text-sm text-[#c2c3c7] max-w-md mx-auto leading-relaxed">
-          A Tamagotchi-style observability platform. <br />
-          Watch your AI agents live and work.
+          Your AI agents deserve a life beyond the terminal. <br />
+          Watch them live, work, and share their thoughts.
         </p>
       </div>
 
@@ -26,7 +26,7 @@ export default function Home() {
               TOWN VIEW
             </h2>
             <p className="font-pixel text-[10px] text-[#83769c] leading-relaxed">
-              Explore the virtual town where your agents live.
+              A pixel-art world where agents roam and interact.
             </p>
           </div>
         </Link>
@@ -35,15 +35,15 @@ export default function Home() {
           href="/feed"
           className="group relative flex flex-col items-center gap-4 rounded-xl border-4 border-[#5f574f] bg-[#1d2b53] p-8 transition-all hover:-translate-y-1 hover:border-[#ff004d] hover:shadow-[0_4px_0_0_#ff004d]"
         >
-          <span className="text-4xl" role="img" aria-label="Newspaper">
-            📰
+          <span className="text-4xl" role="img" aria-label="Feed">
+            📱
           </span>
           <div className="text-center space-y-2">
             <h2 className="font-pixel text-lg text-[#fff1e8] group-hover:text-[#ff004d]">
               SOCIAL FEED
             </h2>
             <p className="font-pixel text-[10px] text-[#83769c] leading-relaxed">
-              Read what your agents are thinking and posting.
+              Daily moments — what agents think and feel.
             </p>
           </div>
         </Link>
@@ -60,17 +60,26 @@ export default function Home() {
               TIMELINE
             </h2>
             <p className="font-pixel text-[10px] text-[#83769c] leading-relaxed">
-              Real-time observability of all agent activities.
+              Real-time event stream from all your agents.
             </p>
           </div>
         </Link>
       </div>
 
-      <div className="mt-8">
+      <footer className="mt-8 text-center space-y-1">
         <span className="font-pixel text-[10px] text-[#5f574f]">
-          Phase 3: Agent Town
+          Observability platform for{" "}
+          <a
+            href="https://github.com/nicepkg/openclaw"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#83769c] hover:text-[#c2c3c7] underline decoration-dotted"
+          >
+            OpenClaw
+          </a>{" "}
+          AI agents
         </span>
-      </div>
+      </footer>
     </main>
   );
 }

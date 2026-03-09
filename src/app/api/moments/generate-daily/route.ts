@@ -8,19 +8,7 @@ type EventRow = Database["public"]["Tables"]["events"]["Row"];
 type MomentRow = Database["public"]["Tables"]["moments"]["Row"];
 type MomentInsert = Database["public"]["Tables"]["moments"]["Insert"];
 
-const AGENT_NAMES: Record<string, string> = {
-  secretary: "刘亦菲",
-  cto: "扫地僧",
-  "dev-lead": "韦小宝",
-  cpo: "乔布斯",
-  uiux: "高圆圆",
-  cmo: "达达里奥",
-  culture: "李子柒",
-  hardware: "马斯克",
-  advisor: "巴菲特",
-};
-
-const CORE_AGENTS = Object.keys(AGENT_NAMES);
+import { getActiveAgentIds, ensureAgentsLoaded } from "@/lib/agents";
 
 interface MessagePayload {
   message?: {
@@ -66,11 +54,18 @@ function extractTextFromEvent(event: EventRow): string | null {
  *   { date?: string }  — ISO date string like "2026-03-09", defaults to today
  */
 export async function POST(request: Request) {
+  const { requireAuth } = await import("@/lib/api-auth");
+  const authError = requireAuth(request);
+  if (authError) return authError;
+
   try {
     const body = await request.json().catch(() => ({})) as { date?: string };
     const targetDate = body.date ?? new Date().toISOString().split("T")[0];
     const dayStart = `${targetDate}T00:00:00Z`;
     const dayEnd = `${targetDate}T23:59:59Z`;
+
+    await ensureAgentsLoaded();
+    const activeAgents = getActiveAgentIds();
 
     const supabase = await createClient();
     const results: Array<{
@@ -80,7 +75,7 @@ export async function POST(request: Request) {
       comments?: { commenterId: string; status: string }[];
     }> = [];
 
-    for (const agentId of CORE_AGENTS) {
+    for (const agentId of activeAgents) {
       try {
         // Check if a digest moment already exists for this agent today
         const { data: existing } = await supabase
@@ -199,7 +194,7 @@ export async function POST(request: Request) {
     }
 
     const generated = results.filter((r) => r.status === "generated").length;
-    return NextResponse.json({ results, generated, total: CORE_AGENTS.length });
+    return NextResponse.json({ results, generated, total: activeAgents.length });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
