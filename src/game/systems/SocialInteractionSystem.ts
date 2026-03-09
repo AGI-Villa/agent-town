@@ -62,6 +62,60 @@ const DEFAULT_CONFIG: SocialInteractionConfig = {
   maxBubblesPerArea: 3,
 };
 
+// CJK characters are roughly double-width
+function isCJK(ch: string): boolean {
+  const code = ch.charCodeAt(0);
+  return (code >= 0x4E00 && code <= 0x9FFF) ||
+    (code >= 0x3400 && code <= 0x4DBF) ||
+    (code >= 0x3000 && code <= 0x303F) ||
+    (code >= 0xFF00 && code <= 0xFFEF);
+}
+
+function visualLength(str: string): number {
+  let len = 0;
+  for (const ch of str) {
+    len += isCJK(ch) ? 2 : 1;
+  }
+  return len;
+}
+
+function truncateForBubble(text: string, maxVisualLen = 24): string {
+  // Take first sentence or line, then truncate
+  const firstSentence = text.split(/[。！？\n]/)[0] || text;
+  let result = '';
+  let vLen = 0;
+  for (const ch of firstSentence) {
+    const w = isCJK(ch) ? 2 : 1;
+    if (vLen + w > maxVisualLen) {
+      return result + '...';
+    }
+    result += ch;
+    vLen += w;
+  }
+  return result;
+}
+
+// CJK-aware line wrapping: splits text into lines that fit within maxPixelWidth
+function wrapText(text: string, charWidth: number, maxPixelWidth: number): string[] {
+  const maxCharsPerLine = Math.floor(maxPixelWidth / charWidth);
+  const lines: string[] = [];
+  let current = '';
+  let currentLen = 0;
+
+  for (const ch of text) {
+    const w = isCJK(ch) ? 2 : 1;
+    if (currentLen + w > maxCharsPerLine && current) {
+      lines.push(current);
+      current = '';
+      currentLen = 0;
+    }
+    current += ch;
+    currentLen += w;
+  }
+  if (current) lines.push(current);
+  return lines.slice(0, 3);
+}
+
 export class SocialInteractionSystem {
   private scene: Phaser.Scene;
   private config: SocialInteractionConfig;
@@ -259,29 +313,20 @@ export class SocialInteractionSystem {
   private getDialoguesForAgents(id1: string, id2: string): string[] {
     const dialogues: string[] = [];
     
-    // Find moments from either agent
     const relevantMoments = this.moments.filter(
       m => m.agent_id === id1 || m.agent_id === id2
     ).slice(0, 2);
 
     for (const moment of relevantMoments) {
-      // Add moment content as dialogue
-      const shortContent = moment.content.length > 50 
-        ? moment.content.substring(0, 47) + '...'
-        : moment.content;
-      dialogues.push(shortContent);
+      dialogues.push(truncateForBubble(moment.content));
 
-      // Add comments as responses
       const otherAgentId = moment.agent_id === id1 ? id2 : id1;
       const agentComments = moment.comments.filter(
         c => c.author_type === 'agent' && c.author_id === otherAgentId
       );
       
       for (const comment of agentComments.slice(0, 1)) {
-        const shortComment = comment.content.length > 50
-          ? comment.content.substring(0, 47) + '...'
-          : comment.content;
-        dialogues.push(shortComment);
+        dialogues.push(truncateForBubble(comment.content));
       }
     }
 
@@ -327,59 +372,36 @@ export class SocialInteractionSystem {
     const container = this.scene.add.container(x, y);
     container.setDepth(1000);
 
-    // Calculate bubble size based on text
-    const maxWidth = 120;
-    const padding = 8;
-    const lineHeight = 12;
-    
-    // Word wrap text
-    const words = text.split(' ');
-    const lines: string[] = [];
-    let currentLine = '';
-    
-    for (const word of words) {
-      const testLine = currentLine ? `${currentLine} ${word}` : word;
-      if (testLine.length * 6 > maxWidth - padding * 2) {
-        if (currentLine) lines.push(currentLine);
-        currentLine = word;
-      } else {
-        currentLine = testLine;
-      }
-    }
-    if (currentLine) lines.push(currentLine);
+    const maxWidth = 140;
+    const padding = 6;
+    const fontSize = 9;
+    const charWidth = 5;
+    const lineHeight = 13;
 
-    const bubbleWidth = Math.min(maxWidth, Math.max(...lines.map(l => l.length * 6)) + padding * 2);
+    const lines = wrapText(text, charWidth, maxWidth - padding * 2);
+    const longestLineVisualLen = Math.max(...lines.map(l => visualLength(l)));
+    const bubbleWidth = Math.min(maxWidth, longestLineVisualLen * charWidth + padding * 2);
     const bubbleHeight = lines.length * lineHeight + padding * 2;
 
-    // Draw bubble background
     const graphics = this.scene.add.graphics();
     graphics.fillStyle(PICO8_COLORS.white);
     graphics.fillRoundedRect(-bubbleWidth / 2, -bubbleHeight, bubbleWidth, bubbleHeight, 4);
-    
-    // Draw bubble tail
-    graphics.fillTriangle(
-      -4, 0,
-      4, 0,
-      0, 8
-    );
-    
-    // Draw border
+    graphics.fillTriangle(-4, 0, 4, 0, 0, 8);
     graphics.lineStyle(1, PICO8_COLORS.darkGray);
     graphics.strokeRoundedRect(-bubbleWidth / 2, -bubbleHeight, bubbleWidth, bubbleHeight, 4);
-    
     container.add(graphics);
 
-    // Add text
     const textObj = this.scene.add.text(0, -bubbleHeight / 2 - padding / 2, lines.join('\n'), {
-      fontSize: '10px',
+      fontSize: `${fontSize}px`,
       color: '#1d2b53',
-      fontFamily: 'monospace',
+      fontFamily: '"Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", monospace',
       align: 'center',
+      lineSpacing: 2,
+      resolution: 2,
     });
     textObj.setOrigin(0.5, 0.5);
     container.add(textObj);
 
-    // Animate bubble appearance
     container.setScale(0);
     this.scene.tweens.add({
       targets: container,

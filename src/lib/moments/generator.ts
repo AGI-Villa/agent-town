@@ -1,5 +1,5 @@
 import type { AnalysisResult } from "@/lib/analysis/types";
-import { SYSTEM_PROMPT, buildGeneratePrompt, buildBatchPrompt } from "./prompts";
+import { SYSTEM_PROMPT, buildGeneratePrompt, buildBatchPrompt, DAILY_DIGEST_SYSTEM_PROMPT, buildDailyDigestPrompt } from "./prompts";
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const DEFAULT_MODEL = "stepfun/step-3.5-flash:free";
@@ -67,6 +67,26 @@ export async function generateMomentsBatch(
   return parseBatchResponse(response, analyses.length);
 }
 
+/**
+ * Generate a single daily digest moment from an agent's conversation history.
+ */
+export async function generateDailyDigest(
+  agentId: string,
+  conversationSnippets: string[],
+  apiKey?: string,
+): Promise<GeneratedMoment> {
+  const key = apiKey ?? process.env.OPENROUTER_API_KEY;
+  if (!key) throw new Error("OPENROUTER_API_KEY is not configured");
+
+  const messages: OpenRouterMessage[] = [
+    { role: "system", content: DAILY_DIGEST_SYSTEM_PROMPT },
+    { role: "user", content: buildDailyDigestPrompt(agentId, conversationSnippets) },
+  ];
+
+  const response = await callOpenRouter(messages, key);
+  return parseSingleResponse(response);
+}
+
 async function callOpenRouter(
   messages: OpenRouterMessage[],
   apiKey: string,
@@ -128,7 +148,21 @@ function extractJSON(raw: string): string {
 }
 
 function parseSingleResponse(raw: string): GeneratedMoment {
-  const parsed = JSON.parse(extractJSON(raw)) as Record<string, unknown>;
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(extractJSON(raw)) as Record<string, unknown>;
+  } catch {
+    // Fallback: extract content and emotion via regex for malformed JSON
+    const contentMatch = raw.match(/"content"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+    const emotionMatch = raw.match(/"emotion"\s*:\s*"(\w+)"/);
+    if (contentMatch?.[1]) {
+      return {
+        content: contentMatch[1].replace(/\\n/g, "\n").replace(/\\"/g, '"'),
+        emotion: emotionMatch?.[1] && VALID_EMOTIONS.has(emotionMatch[1]) ? emotionMatch[1] : "focused",
+      };
+    }
+    throw new Error("Failed to parse LLM response as JSON");
+  }
 
   const content = typeof parsed.content === "string" ? parsed.content.trim() : "";
   const emotion =

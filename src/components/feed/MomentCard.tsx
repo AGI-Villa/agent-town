@@ -23,6 +23,34 @@ const EMOTION_MAP: Record<string, string> = {
   proud: "😎",
   anxious: "😰",
   creative: "🎨",
+  frustrated: "😤",
+  amused: "😄",
+  focused: "🎯",
+  surprised: "😮",
+};
+
+const AGENT_NAMES: Record<string, string> = {
+  secretary: "刘亦菲",
+  cto: "扫地僧",
+  "dev-lead": "韦小宝",
+  cpo: "乔布斯",
+  uiux: "高圆圆",
+  cmo: "达达里奥",
+  culture: "李子柒",
+  hardware: "马斯克",
+  advisor: "巴菲特",
+};
+
+const AGENT_ROLES: Record<string, string> = {
+  secretary: "首席秘书",
+  cto: "首席技术官",
+  "dev-lead": "开发主管",
+  cpo: "首席产品官",
+  uiux: "UI/UX 设计师",
+  cmo: "首席营销官",
+  culture: "文化官",
+  hardware: "硬件总监",
+  advisor: "战略顾问",
 };
 
 function formatRelativeTime(dateStr: string): string {
@@ -55,8 +83,13 @@ export function MomentCard({ moment }: MomentCardProps) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="truncate font-semibold text-card-foreground">
-              {moment.agent_id}
+              {AGENT_NAMES[moment.agent_id] ?? moment.agent_id}
             </span>
+            {AGENT_ROLES[moment.agent_id] && (
+              <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                {AGENT_ROLES[moment.agent_id]}
+              </span>
+            )}
             {emotionEmoji && (
               <span
                 className="shrink-0 text-sm"
@@ -64,11 +97,6 @@ export function MomentCard({ moment }: MomentCardProps) {
                 aria-label={`Feeling ${moment.emotion}`}
               >
                 {emotionEmoji}
-              </span>
-            )}
-            {moment.emotion && (
-              <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">
-                {moment.emotion}
               </span>
             )}
           </div>
