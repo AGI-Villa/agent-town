@@ -1,5 +1,4 @@
 import { StatusGrid } from "@/components/status/StatusGrid";
-import { WatcherControl } from "@/components/status/WatcherControl";
 
 export const metadata = {
   title: "Status Panel | Agent Town",
@@ -33,6 +32,18 @@ export default function StatusPage() {
               HOME
             </a>
             <a
+              href="/town"
+              className="font-pixel text-[10px] text-[#83769c] hover:text-[#fff1e8] transition-colors"
+            >
+              TOWN
+            </a>
+            <a
+              href="/office"
+              className="font-pixel text-[10px] text-[#83769c] hover:text-[#fff1e8] transition-colors"
+            >
+              OFFICE
+            </a>
+            <a
               href="/status"
               className="font-pixel text-[10px] text-[#ffa300] underline underline-offset-4"
               aria-current="page"
@@ -51,7 +62,6 @@ export default function StatusPage() {
 
       {/* Content */}
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-8">
-        <WatcherControl />
         <StatusGrid />
       </div>
     </main>

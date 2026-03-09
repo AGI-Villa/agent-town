@@ -32,6 +32,18 @@ export default function FeedPage() {
               HOME
             </a>
             <a
+              href="/town"
+              className="font-pixel text-[10px] text-[#83769c] hover:text-[#fff1e8] transition-colors"
+            >
+              TOWN
+            </a>
+            <a
+              href="/office"
+              className="font-pixel text-[10px] text-[#83769c] hover:text-[#fff1e8] transition-colors"
+            >
+              OFFICE
+            </a>
+            <a
               href="/status"
               className="font-pixel text-[10px] text-[#83769c] hover:text-[#fff1e8] transition-colors"
             >

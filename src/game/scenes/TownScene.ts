@@ -528,11 +528,17 @@ export class TownScene extends Phaser.Scene {
   private createAgent(agentData: ApiAgentStatus): void {
     if (this.agents.has(agentData.agent_id)) return;
 
-    const workstations = TOWN_MAP.locations.workstations;
+    // Spread agents across ALL locations: workstations, park benches, homes, cafe tables
+    const allSpawnPoints = [
+      ...TOWN_MAP.locations.workstations,
+      ...TOWN_MAP.locations.parkBenches,
+      ...TOWN_MAP.locations.homes,
+      ...TOWN_MAP.locations.cafeTables,
+    ];
     const agentIndex = this.agents.size;
-    const workstation = workstations[agentIndex % workstations.length];
-    const tileX = workstation.x + 1;
-    const tileY = workstation.y + 1;
+    const spawnPoint = allSpawnPoints[agentIndex % allSpawnPoints.length];
+    const tileX = spawnPoint.x + 1;
+    const tileY = spawnPoint.y + 1;
 
     const agent = new AgentSprite(
       this,
