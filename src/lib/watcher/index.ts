@@ -1,9 +1,16 @@
 /**
  * Watcher Service — monitors ~/.openclaw/agents/ for JSONL file changes
  * using chokidar and writes parsed events to Supabase.
+ *
+ * Key behaviors:
+ * - On "add" (existing file): skip to tail (last TAIL_BYTES) to avoid
+ *   flooding the DB with historical data from multi-MB session logs.
+ * - On "change" (new writes): read incrementally from the last offset.
+ * - Auto-starts when the module is first imported in the server process.
  */
 
 import { watch, type FSWatcher } from "chokidar";
+import { stat } from "fs/promises";
 import { resolve } from "path";
 import { homedir } from "os";
 import { readJsonlFile } from "./jsonl-parser";
@@ -19,8 +26,11 @@ export interface WatcherStatus {
 }
 
 const WATCH_PATH = resolve(homedir(), ".openclaw", "agents");
-const GLOB_PATTERN = "**/*.jsonl";
+// Only watch real session files, ignore .deleted backups
+const GLOB_PATTERN = "**/sessions/*.jsonl";
 const MAX_ERRORS = 50;
+// For existing files, only tail the last 100KB to avoid mass-importing history
+const TAIL_BYTES = 100 * 1024;
 
 class WatcherService {
   private watcher: FSWatcher | null = null;
@@ -45,27 +55,32 @@ class WatcherService {
   }
 
   async start(): Promise<void> {
-    if (this.watcher) {
-      throw new Error("Watcher is already running");
-    }
+    if (this.watcher) return; // already running, silently skip
 
     const watchGlob = resolve(WATCH_PATH, GLOB_PATTERN);
 
     this.watcher = watch(watchGlob, {
       persistent: true,
+      // ignoreInitial: false so we pick up existing active session files
       ignoreInitial: false,
+      // Ignore .deleted backup files
+      ignored: /\.deleted\./,
       awaitWriteFinish: {
-        stabilityThreshold: 500,
+        stabilityThreshold: 300,
         pollInterval: 100,
       },
     });
 
     this.startedAt = new Date().toISOString();
 
+    // "add" fires for pre-existing files when watcher starts.
+    // Set offset to near the end so we only read recent content.
     this.watcher.on("add", (filePath: string) => {
-      this.handleFileChange(filePath);
+      this.handleExistingFile(filePath);
     });
 
+    // "change" fires when new bytes are appended to a file.
+    // Read only the new content since last offset.
     this.watcher.on("change", (filePath: string) => {
       this.handleFileChange(filePath);
     });
@@ -87,10 +102,33 @@ class WatcherService {
     this.watcher = null;
     this.fileOffsets.clear();
     this.startedAt = null;
-
     console.log("[watcher] Stopped");
   }
 
+  /**
+   * Called when watcher first sees a file (including pre-existing files).
+   * Skips to near the end of the file to avoid importing all historical data.
+   */
+  private async handleExistingFile(filePath: string): Promise<void> {
+    try {
+      const fileStat = await stat(filePath);
+      const fileSize = fileStat.size;
+      // Start from tail: skip all but the last TAIL_BYTES
+      const tailOffset = Math.max(0, fileSize - TAIL_BYTES);
+      this.fileOffsets.set(filePath, tailOffset);
+
+      // Now read and write just that tail portion
+      await this.handleFileChange(filePath);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      this.addError(`Error initializing ${filePath}: ${msg}`);
+    }
+  }
+
+  /**
+   * Called when file content changes. Reads new content since last offset
+   * and writes events to Supabase in small batches.
+   */
   private async handleFileChange(filePath: string): Promise<void> {
     const currentOffset = this.fileOffsets.get(filePath) ?? 0;
 
@@ -105,11 +143,11 @@ class WatcherService {
       this.totalEventsProcessed += written;
 
       if (written > 0) {
-        console.log(`[watcher] Processed ${written} events from ${filePath}`);
+        console.log(`[watcher] Wrote ${written} events from ${filePath.split("/").slice(-3).join("/")}`);
       }
 
       if (written < events.length) {
-        this.addError(`Partial write: ${written}/${events.length} events from ${filePath}`);
+        this.addError(`Partial write: ${written}/${events.length} from ${filePath}`);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
@@ -128,3 +166,11 @@ class WatcherService {
 
 // Singleton instance
 export const watcherService = new WatcherService();
+
+// Auto-start when this module is first loaded in the server process.
+// Only runs on the server (Node.js), not during SSR/client builds.
+if (typeof window === "undefined") {
+  watcherService.start().catch((err) => {
+    console.error("[watcher] Auto-start failed:", err);
+  });
+}
