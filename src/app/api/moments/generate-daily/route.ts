@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { generateDailyDigest } from "@/lib/moments/generator";
+import { generateAgentComments } from "@/lib/moments/comments";
 import type { Database } from "@/lib/database.types";
 
 type EventRow = Database["public"]["Tables"]["events"]["Row"];
+type MomentRow = Database["public"]["Tables"]["moments"]["Row"];
 type MomentInsert = Database["public"]["Tables"]["moments"]["Insert"];
 
 const AGENT_NAMES: Record<string, string> = {
@@ -58,6 +60,7 @@ function extractTextFromEvent(event: EventRow): string | null {
  *
  * For each core agent, aggregate today's conversation messages,
  * then generate ONE daily digest moment via LLM.
+ * After generation, other agents randomly comment on the new moment.
  *
  * Body (optional):
  *   { date?: string }  — ISO date string like "2026-03-09", defaults to today
@@ -70,7 +73,12 @@ export async function POST(request: Request) {
     const dayEnd = `${targetDate}T23:59:59Z`;
 
     const supabase = await createClient();
-    const results: Array<{ agent_id: string; status: string; moment_id?: string }> = [];
+    const results: Array<{
+      agent_id: string;
+      status: string;
+      moment_id?: string;
+      comments?: { commenterId: string; status: string }[];
+    }> = [];
 
     for (const agentId of CORE_AGENTS) {
       try {
@@ -87,6 +95,18 @@ export async function POST(request: Request) {
           results.push({ agent_id: agentId, status: "skipped (already has moment today)" });
           continue;
         }
+
+        // Part 3: Fetch recent 3 moments for continuous memory
+        const { data: recentMomentsData } = await supabase
+          .from("moments")
+          .select("content")
+          .eq("agent_id", agentId)
+          .order("created_at", { ascending: false })
+          .limit(3);
+
+        const recentMoments = ((recentMomentsData ?? []) as MomentRow[])
+          .map((m) => m.content)
+          .reverse();
 
         // Fetch today's message events for this agent
         const { data: events, error } = await supabase
@@ -135,7 +155,13 @@ export async function POST(request: Request) {
           snippets.push(...recentSnippets.slice(0, 30));
         }
 
-        const generated = await generateDailyDigest(agentId, snippets);
+        // Generate moment with continuous memory context
+        const generated = await generateDailyDigest(
+          agentId,
+          snippets,
+          undefined,
+          recentMoments.length > 0 ? recentMoments : undefined
+        );
 
         const moment: MomentInsert = {
           agent_id: agentId,
@@ -154,7 +180,18 @@ export async function POST(request: Request) {
           continue;
         }
 
-        results.push({ agent_id: agentId, status: "generated", moment_id: (inserted as Record<string, unknown>)?.id as string });
+        const momentId = (inserted as Record<string, unknown>)?.id as string;
+        const momentContent = generated.content;
+
+        // Part 2: Generate agent cross-comments
+        const commentResults = await generateAgentComments(momentId, agentId, momentContent);
+
+        results.push({
+          agent_id: agentId,
+          status: "generated",
+          moment_id: momentId,
+          comments: commentResults,
+        });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         results.push({ agent_id: agentId, status: `error: ${msg}` });

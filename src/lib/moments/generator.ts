@@ -69,18 +69,20 @@ export async function generateMomentsBatch(
 
 /**
  * Generate a single daily digest moment from an agent's conversation history.
+ * @param recentMoments - Optional array of recent moment contents for continuity
  */
 export async function generateDailyDigest(
   agentId: string,
   conversationSnippets: string[],
   apiKey?: string,
+  recentMoments?: string[],
 ): Promise<GeneratedMoment> {
   const key = apiKey ?? process.env.OPENROUTER_API_KEY;
   if (!key) throw new Error("OPENROUTER_API_KEY is not configured");
 
   const messages: OpenRouterMessage[] = [
     { role: "system", content: DAILY_DIGEST_SYSTEM_PROMPT },
-    { role: "user", content: buildDailyDigestPrompt(agentId, conversationSnippets) },
+    { role: "user", content: buildDailyDigestPrompt(agentId, conversationSnippets, recentMoments) },
   ];
 
   const response = await callOpenRouter(messages, key);
