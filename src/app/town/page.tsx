@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
+import { NotificationBell } from '@/components/notifications';
 
 const TownCanvas = dynamic(
   () => import('@/components/game/TownCanvas'),
@@ -24,10 +25,14 @@ export default function TownPage() {
 
       {showUI && (
         <>
-          <nav className="absolute top-3 left-3 z-50 flex gap-2 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2">
-            <a href="/" className="font-pixel text-[9px] text-[#83769c] hover:text-white transition-colors">HOME</a>
-            <span className="font-pixel text-[9px] text-[#ffa300]">TOWN</span>
-            <a href="/feed" className="font-pixel text-[9px] text-[#83769c] hover:text-white transition-colors">FEED</a>
+          <nav className="absolute top-3 left-3 z-50 flex items-center gap-3 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2">
+            <div className="flex gap-2">
+              <a href="/" className="font-pixel text-[9px] text-[#83769c] hover:text-white transition-colors">HOME</a>
+              <span className="font-pixel text-[9px] text-[#ffa300]">TOWN</span>
+              <a href="/feed" className="font-pixel text-[9px] text-[#83769c] hover:text-white transition-colors">FEED</a>
+            </div>
+            <div className="w-px h-4 bg-[#5f574f]" />
+            <NotificationBell />
           </nav>
 
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-50 bg-black/50 backdrop-blur-sm rounded-lg px-4 py-1.5">
