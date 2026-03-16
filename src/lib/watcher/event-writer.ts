@@ -2,11 +2,22 @@
  * Writes parsed JSONL events to the Supabase `events` table.
  * Also creates notifications for significant events.
  * Also extracts and writes token usage data.
+ * Integrates with the plugin system for custom event type handling.
  */
 
 import { getAdminClient } from "../supabase/admin";
 import type { Database } from "../database.types";
 import type { ParsedEvent } from "./jsonl-parser";
+import { pluginRegistry, initializePlugins } from "../plugins";
+
+// Ensure plugins are initialized
+let pluginsInitialized = false;
+function ensurePluginsInitialized() {
+  if (!pluginsInitialized) {
+    initializePlugins();
+    pluginsInitialized = true;
+  }
+}
 
 type EventInsert = Database["public"]["Tables"]["events"]["Insert"];
 type NotificationInsert = Database["public"]["Tables"]["notifications"]["Insert"];
@@ -131,11 +142,40 @@ const HIGH_SIGNIFICANCE_KEYWORDS = [
 
 /**
  * Check if an event should trigger a notification.
+ * Now integrates with the plugin system for custom notification rules.
  */
 function shouldNotify(event: ParsedEvent): boolean {
+  ensurePluginsInitialized();
+  
   const eventType = event.event_type.toLowerCase();
   
-  // Check explicit notification types
+  // First, try plugin-based notification check
+  const pluginResult = pluginRegistry.parseEvent(
+    event.event_type,
+    event.payload,
+    { agentId: event.agent_id }
+  );
+  
+  if (pluginResult?.shouldNotify) {
+    return true;
+  }
+  
+  // Check plugin notification rules
+  if (pluginResult?.eventTypeId) {
+    const rules = pluginRegistry.getNotificationRules(pluginResult.eventTypeId);
+    for (const rule of rules) {
+      if (rule.condition) {
+        if (rule.condition(pluginResult, event.payload)) {
+          return true;
+        }
+      } else {
+        // No condition means always notify for this event type
+        return true;
+      }
+    }
+  }
+  
+  // Fallback to built-in notification types
   if (NOTIFICATION_EVENT_TYPES.has(eventType)) {
     return true;
   }
@@ -159,11 +199,30 @@ function shouldNotify(event: ParsedEvent): boolean {
 
 /**
  * Generate notification content from an event.
+ * Now integrates with the plugin system for custom notification messages.
  */
 function generateNotificationContent(event: ParsedEvent): string {
+  ensurePluginsInitialized();
+  
   const agentName = event.agent_id;
   const eventType = event.event_type;
   
+  // First, try plugin-based notification content
+  const pluginResult = pluginRegistry.parseEvent(
+    event.event_type,
+    event.payload,
+    { agentId: event.agent_id }
+  );
+  
+  if (pluginResult?.notificationMessage) {
+    return `${agentName} ${pluginResult.notificationMessage}`;
+  }
+  
+  if (pluginResult?.summary) {
+    return `${agentName} ${pluginResult.summary}`;
+  }
+  
+  // Fallback to built-in content generation
   // Try to extract summary from payload
   let summary = "";
   if (event.payload && typeof event.payload === "object") {
