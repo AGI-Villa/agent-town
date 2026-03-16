@@ -76,3 +76,24 @@ ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow public read on notifications" ON notifications FOR SELECT USING (true);
 CREATE POLICY "Allow service insert on notifications" ON notifications FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow service update on notifications" ON notifications FOR UPDATE USING (true);
+
+-- Token usage table: tracks token consumption per agent/session
+CREATE TABLE token_usage (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id TEXT NOT NULL,
+  session_id TEXT,
+  prompt_tokens INTEGER DEFAULT 0,
+  completion_tokens INTEGER DEFAULT 0,
+  total_tokens INTEGER DEFAULT 0,
+  model TEXT,
+  estimated_cost DECIMAL(10, 6),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_token_usage_agent ON token_usage(agent_id);
+CREATE INDEX idx_token_usage_created ON token_usage(created_at);
+
+-- RLS for token_usage
+ALTER TABLE token_usage ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public read on token_usage" ON token_usage FOR SELECT USING (true);
+CREATE POLICY "Allow service insert on token_usage" ON token_usage FOR INSERT WITH CHECK (true);

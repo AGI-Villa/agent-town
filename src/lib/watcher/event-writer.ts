@@ -1,6 +1,7 @@
 /**
  * Writes parsed JSONL events to the Supabase `events` table.
  * Also creates notifications for significant events.
+ * Also extracts and writes token usage data.
  */
 
 import { getAdminClient } from "../supabase/admin";
@@ -9,6 +10,95 @@ import type { ParsedEvent } from "./jsonl-parser";
 
 type EventInsert = Database["public"]["Tables"]["events"]["Insert"];
 type NotificationInsert = Database["public"]["Tables"]["notifications"]["Insert"];
+type TokenUsageInsert = Database["public"]["Tables"]["token_usage"]["Insert"];
+
+// Model pricing per 1M tokens (input/output)
+const MODEL_PRICING: Record<string, { input: number; output: number }> = {
+  "gpt-4": { input: 30, output: 60 },
+  "gpt-4-turbo": { input: 10, output: 30 },
+  "gpt-4o": { input: 2.5, output: 10 },
+  "gpt-4o-mini": { input: 0.15, output: 0.6 },
+  "gpt-3.5-turbo": { input: 0.5, output: 1.5 },
+  "claude-3-opus": { input: 15, output: 75 },
+  "claude-3-sonnet": { input: 3, output: 15 },
+  "claude-3-haiku": { input: 0.25, output: 1.25 },
+  "claude-3.5-sonnet": { input: 3, output: 15 },
+  "claude-opus-4": { input: 15, output: 75 },
+  "claude-sonnet-4": { input: 3, output: 15 },
+  "deepseek-chat": { input: 0.14, output: 0.28 },
+  "deepseek-coder": { input: 0.14, output: 0.28 },
+};
+
+/**
+ * Calculate estimated cost based on model and token counts.
+ */
+function calculateCost(
+  model: string | undefined,
+  promptTokens: number,
+  completionTokens: number
+): number {
+  if (!model) return 0;
+  
+  // Find matching pricing (partial match)
+  const modelKey = Object.keys(MODEL_PRICING).find(
+    (key) => model.toLowerCase().includes(key.toLowerCase())
+  );
+  
+  if (!modelKey) return 0;
+  
+  const pricing = MODEL_PRICING[modelKey];
+  const inputCost = (promptTokens / 1_000_000) * pricing.input;
+  const outputCost = (completionTokens / 1_000_000) * pricing.output;
+  
+  return inputCost + outputCost;
+}
+
+interface TokenUsageData {
+  agent_id: string;
+  session_id?: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  model?: string;
+  created_at?: string;
+}
+
+/**
+ * Extract token usage from event payload.
+ */
+function extractTokenUsage(event: ParsedEvent): TokenUsageData | null {
+  if (!event.payload || typeof event.payload !== "object") return null;
+  
+  const payload = event.payload as Record<string, unknown>;
+  
+  // Check for usage in response
+  const response = payload.response as Record<string, unknown> | undefined;
+  const usage = (response?.usage ?? payload.usage) as Record<string, unknown> | undefined;
+  
+  if (!usage) return null;
+  
+  const promptTokens = (usage.prompt_tokens ?? usage.input_tokens ?? 0) as number;
+  const completionTokens = (usage.completion_tokens ?? usage.output_tokens ?? 0) as number;
+  const totalTokens = (usage.total_tokens ?? promptTokens + completionTokens) as number;
+  
+  if (totalTokens === 0) return null;
+  
+  // Extract model from various locations
+  const model = (response?.model ?? payload.model ?? usage.model) as string | undefined;
+  
+  // Extract session_id if available
+  const sessionId = payload.session_id as string | undefined;
+  
+  return {
+    agent_id: event.agent_id,
+    session_id: sessionId,
+    prompt_tokens: promptTokens,
+    completion_tokens: completionTokens,
+    total_tokens: totalTokens,
+    model,
+    created_at: event.created_at,
+  };
+}
 
 const BATCH_SIZE = 50;
 
@@ -122,6 +212,15 @@ export async function writeEvents(events: ParsedEvent[]): Promise<number> {
 
   let totalWritten = 0;
   const notificationsToCreate: { event: ParsedEvent; eventId?: string }[] = [];
+  const tokenUsageToWrite: TokenUsageData[] = [];
+
+  // Extract token usage from all events
+  for (const event of events) {
+    const usage = extractTokenUsage(event);
+    if (usage) {
+      tokenUsageToWrite.push(usage);
+    }
+  }
 
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
     const batch = rows.slice(i, i + BATCH_SIZE);
@@ -162,6 +261,11 @@ export async function writeEvents(events: ParsedEvent[]): Promise<number> {
     await createNotifications(notificationsToCreate);
   }
 
+  // Write token usage data
+  if (tokenUsageToWrite.length > 0) {
+    await writeTokenUsage(tokenUsageToWrite);
+  }
+
   return totalWritten;
 }
 
@@ -189,5 +293,34 @@ async function createNotifications(
     }
   } catch (err) {
     console.error("[event-writer] Error creating notifications:", err);
+  }
+}
+
+/**
+ * Write token usage data to the database.
+ */
+async function writeTokenUsage(usageData: TokenUsageData[]): Promise<void> {
+  const client = getAdminClient();
+
+  const rows: TokenUsageInsert[] = usageData.map((data) => ({
+    agent_id: data.agent_id,
+    session_id: data.session_id ?? null,
+    prompt_tokens: data.prompt_tokens,
+    completion_tokens: data.completion_tokens,
+    total_tokens: data.total_tokens,
+    model: data.model ?? null,
+    estimated_cost: calculateCost(data.model, data.prompt_tokens, data.completion_tokens),
+    ...(data.created_at ? { created_at: data.created_at } : {}),
+  }));
+
+  try {
+    const { error } = await client.from("token_usage").insert(rows);
+    if (error) {
+      console.error("[event-writer] Failed to write token usage:", error.message);
+    } else {
+      console.log(`[event-writer] Wrote ${rows.length} token usage records`);
+    }
+  } catch (err) {
+    console.error("[event-writer] Error writing token usage:", err);
   }
 }

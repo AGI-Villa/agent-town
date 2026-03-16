@@ -117,6 +117,42 @@ export interface Database {
         };
         Relationships: [];
       };
+      token_usage: {
+        Row: {
+          id: string;
+          agent_id: string;
+          session_id: string | null;
+          prompt_tokens: number;
+          completion_tokens: number;
+          total_tokens: number;
+          model: string | null;
+          estimated_cost: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          agent_id: string;
+          session_id?: string | null;
+          prompt_tokens?: number;
+          completion_tokens?: number;
+          total_tokens?: number;
+          model?: string | null;
+          estimated_cost?: number | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          agent_id?: string;
+          session_id?: string | null;
+          prompt_tokens?: number;
+          completion_tokens?: number;
+          total_tokens?: number;
+          model?: string | null;
+          estimated_cost?: number | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
