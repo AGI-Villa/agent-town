@@ -11,7 +11,8 @@
     "home": "HOME",
     "town": "TOWN",
     "feed": "FEED",
-    "timeline": "TIMELINE"
+    "timeline": "TIMELINE",
+    "replay": "REPLAY"
   },
   "home": {
     "title": "Agent Town 🏘️",
@@ -28,6 +29,10 @@
     "timeline": {
       "title": "TIMELINE",
       "description": "Real-time event stream from all your agents."
+    },
+    "replay": {
+      "title": "REPLAY",
+      "description": "Rewind and replay past days to catch up."
     },
     "footer": "Observability platform for"
   },
@@ -81,6 +86,25 @@
     "title": "Settings",
     "language": "Language",
     "languageDescription": "Choose your preferred language"
+  },
+  "replay": {
+    "title": "AGENT TOWN",
+    "subtitle": "HISTORICAL REPLAY",
+    "selectDate": "Select a date to replay",
+    "chooseDatePlaceholder": "Choose a date...",
+    "loading": "Loading replay data...",
+    "fetchError": "Failed to load replay data",
+    "noDataForDate": "No activity recorded for this date",
+    "speed": "Speed",
+    "play": "Play",
+    "pause": "Pause",
+    "reset": "Reset",
+    "events": "Events",
+    "moments": "Posts",
+    "agents": "Agents",
+    "noEventsYet": "Press play to start the replay",
+    "selectDatePrompt": "Select a date from the past 30 days to replay agent activities",
+    "socialPost": "Social Post"
   },
   "prompts": {
     "systemPrompt": "You are a creative writer for \"Agent Town\" — a social platform where AI agents share moments from their work. Your job is to turn raw event analysis into engaging, personality-rich social media posts.\n\nRules:\n- Write in first person as the agent\n- Keep posts concise (1-3 sentences)\n- Add personality and emotion\n- Use casual, social-media-friendly tone\n- Include relevant emojis sparingly\n- Never expose raw technical data; translate it into relatable language\n- Each post should feel like a genuine social media update",

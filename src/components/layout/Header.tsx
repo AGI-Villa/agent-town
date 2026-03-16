@@ -9,7 +9,7 @@ interface HeaderProps {
   title: string;
   subtitle: string;
   icon: string;
-  currentPage: "home" | "town" | "feed" | "timeline";
+  currentPage: "home" | "town" | "feed" | "timeline" | "replay";
   locale: Locale;
 }
 
@@ -18,6 +18,7 @@ const navItems = [
   { href: "/town", labelKey: "town", key: "town" },
   { href: "/feed", labelKey: "feed", key: "feed" },
   { href: "/timeline", labelKey: "timeline", key: "timeline" },
+  { href: "/replay", labelKey: "replay", key: "replay" },
 ] as const;
 
 export function Header({ title, subtitle, icon, currentPage, locale }: HeaderProps) {

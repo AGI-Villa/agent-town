@@ -17,7 +17,7 @@ export default async function Home() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-3 w-full max-w-4xl px-2">
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 w-full max-w-5xl px-2">
         <Link
           href="/town"
           className="group relative flex flex-col items-center gap-3 sm:gap-4 rounded-xl border-4 border-[#5f574f] bg-[#1d2b53] p-6 sm:p-8 transition-all hover:-translate-y-1 hover:border-[#00e436] hover:shadow-[0_4px_0_0_#00e436] active:translate-y-0 active:shadow-none touch-manipulation"
@@ -65,6 +65,23 @@ export default async function Home() {
             </h2>
             <p className="font-pixel text-[9px] sm:text-[10px] text-[#83769c] leading-relaxed">
               {t('timeline.description')}
+            </p>
+          </div>
+        </Link>
+
+        <Link
+          href="/replay"
+          className="group relative flex flex-col items-center gap-3 sm:gap-4 rounded-xl border-4 border-[#5f574f] bg-[#1d2b53] p-6 sm:p-8 transition-all hover:-translate-y-1 hover:border-[#ffa300] hover:shadow-[0_4px_0_0_#ffa300] active:translate-y-0 active:shadow-none touch-manipulation"
+        >
+          <span className="text-3xl sm:text-4xl" role="img" aria-label="Replay">
+            ⏪
+          </span>
+          <div className="text-center space-y-1 sm:space-y-2">
+            <h2 className="font-pixel text-base sm:text-lg text-[#fff1e8] group-hover:text-[#ffa300]">
+              {t('replay.title')}
+            </h2>
+            <p className="font-pixel text-[9px] sm:text-[10px] text-[#83769c] leading-relaxed">
+              {t('replay.description')}
             </p>
           </div>
         </Link>
