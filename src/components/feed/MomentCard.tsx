@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from 'next-intl';
 import { AgentAvatar } from "./AgentAvatar";
 import { LikeButton } from "./LikeButton";
 import { CommentSection } from "./CommentSection";
@@ -34,18 +35,22 @@ import { getAgentNames, getAgentRoles } from "@/lib/agents";
 const AGENT_NAMES = getAgentNames();
 const AGENT_ROLES = getAgentRoles();
 
-function formatRelativeTime(dateStr: string): string {
-  const now = Date.now();
-  const date = new Date(dateStr).getTime();
-  const diff = now - date;
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString();
+function useRelativeTime() {
+  const t = useTranslations('feed');
+  
+  return (dateStr: string): string => {
+    const now = Date.now();
+    const date = new Date(dateStr).getTime();
+    const diff = now - date;
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 1) return t('justNow');
+    if (minutes < 60) return t('minutesAgo', { count: minutes });
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return t('hoursAgo', { count: hours });
+    const days = Math.floor(hours / 24);
+    if (days < 7) return t('daysAgo', { count: days });
+    return new Date(dateStr).toLocaleDateString();
+  };
 }
 
 interface MomentCardProps {
@@ -53,6 +58,9 @@ interface MomentCardProps {
 }
 
 export function MomentCard({ moment }: MomentCardProps) {
+  const t = useTranslations('feed');
+  const formatRelativeTime = useRelativeTime();
+  
   const emotionEmoji = moment.emotion
     ? EMOTION_MAP[moment.emotion.toLowerCase()] || "💭"
     : null;
@@ -75,7 +83,7 @@ export function MomentCard({ moment }: MomentCardProps) {
               <span
                 className="shrink-0 text-sm"
                 role="img"
-                aria-label={`Feeling ${moment.emotion}`}
+                aria-label={t('feeling', { emotion: moment.emotion ?? '' })}
               >
                 {emotionEmoji}
               </span>

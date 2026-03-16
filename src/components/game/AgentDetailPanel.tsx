@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import type { MemoryItem } from '@/lib/memory/parser';
 
 interface AgentDetail {
@@ -46,6 +47,9 @@ function getStatusEmoji(status: string): string {
 }
 
 export function AgentDetailPanel({ agentId, onClose }: AgentDetailPanelProps) {
+  const t = useTranslations('agent');
+  const tCommon = useTranslations('common');
+  
   const [detail, setDetail] = useState<AgentDetail | null>(null);
   const [tokenStats, setTokenStats] = useState<TokenStats | null>(null);
   const [recentMemories, setRecentMemories] = useState<MemoryItem[]>([]);
@@ -147,7 +151,7 @@ export function AgentDetailPanel({ agentId, onClose }: AgentDetailPanelProps) {
           <button
             onClick={handleClose}
             className="font-pixel text-xs text-[#ff004d] hover:text-[#fff1e8] transition-colors px-2 py-1"
-            aria-label="Close panel"
+            aria-label={tCommon('close')}
           >
             [X]
           </button>
@@ -155,7 +159,7 @@ export function AgentDetailPanel({ agentId, onClose }: AgentDetailPanelProps) {
 
         {loading ? (
           <div className="p-4 text-center">
-            <span className="font-pixel text-xs text-[#c2c3c7] animate-pulse">Loading...</span>
+            <span className="font-pixel text-xs text-[#c2c3c7] animate-pulse">{tCommon('loading')}</span>
           </div>
         ) : detail ? (
           <div className="p-4 space-y-4">
@@ -169,14 +173,14 @@ export function AgentDetailPanel({ agentId, onClose }: AgentDetailPanelProps) {
                 className="font-pixel text-xs"
                 style={{ color: getStatusColor(detail.status) }}
               >
-                {detail.status.toUpperCase()}
+                {t(`status.${detail.status}`)}
               </span>
             </div>
 
             {/* Current Task */}
             {detail.currentTask && (
               <div className="bg-[#000]/30 border border-[#5f574f] p-3 rounded">
-                <div className="font-pixel text-[8px] text-[#c2c3c7] mb-1">当前任务</div>
+                <div className="font-pixel text-[8px] text-[#c2c3c7] mb-1">{t('currentTask')}</div>
                 <div className="font-pixel text-sm text-[#fff1e8] leading-relaxed">
                   {detail.currentTask}
                 </div>
@@ -185,11 +189,11 @@ export function AgentDetailPanel({ agentId, onClose }: AgentDetailPanelProps) {
 
             {/* Today Stats */}
             <div className="bg-[#000]/30 border border-[#5f574f] p-3 rounded">
-              <div className="font-pixel text-[8px] text-[#c2c3c7] mb-2">今日统计</div>
+              <div className="font-pixel text-[8px] text-[#c2c3c7] mb-2">{t('todayStats')}</div>
               <div className="flex items-center gap-4">
                 <div>
                   <div className="font-pixel text-lg text-[#29adff]">{detail.todayStats.total}</div>
-                  <div className="font-pixel text-[8px] text-[#83769c]">事件</div>
+                  <div className="font-pixel text-[8px] text-[#83769c]">{t('events')}</div>
                 </div>
                 <div className="flex-1 flex flex-wrap gap-1">
                   {Object.entries(detail.todayStats.byType).slice(0, 4).map(([type, count]) => (
@@ -211,8 +215,8 @@ export function AgentDetailPanel({ agentId, onClose }: AgentDetailPanelProps) {
                 className="block bg-[#000]/30 border border-[#5f574f] p-3 rounded hover:border-[#29adff] transition-colors"
               >
                 <div className="font-pixel text-[8px] text-[#c2c3c7] mb-2 flex items-center gap-1">
-                  <span>🔥</span> 今日消耗
-                  <span className="ml-auto text-[#83769c]">点击查看详情 →</span>
+                  <span>🔥</span> {t('todayUsage')}
+                  <span className="ml-auto text-[#83769c]">{t('clickForDetails')}</span>
                 </div>
                 <div className="flex items-center gap-4">
                   <div>
@@ -223,13 +227,13 @@ export function AgentDetailPanel({ agentId, onClose }: AgentDetailPanelProps) {
                         ? `${(tokenStats.total_tokens / 1000).toFixed(0)}K`
                         : tokenStats.total_tokens}
                     </div>
-                    <div className="font-pixel text-[8px] text-[#83769c]">Tokens</div>
+                    <div className="font-pixel text-[8px] text-[#83769c]">{t('tokens')}</div>
                   </div>
                   <div>
                     <div className="font-pixel text-lg text-[#00e436]">
                       ${tokenStats.total_cost.toFixed(4)}
                     </div>
-                    <div className="font-pixel text-[8px] text-[#83769c]">预估成本</div>
+                    <div className="font-pixel text-[8px] text-[#83769c]">{t('estimatedCost')}</div>
                   </div>
                 </div>
               </Link>
@@ -237,7 +241,7 @@ export function AgentDetailPanel({ agentId, onClose }: AgentDetailPanelProps) {
 
             {/* Recent Events */}
             <div>
-              <div className="font-pixel text-[8px] text-[#c2c3c7] mb-2">最近动态</div>
+              <div className="font-pixel text-[8px] text-[#c2c3c7] mb-2">{t('recentActivity')}</div>
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {detail.recentEvents.length > 0 ? (
                   detail.recentEvents.map((ev, i) => (
@@ -256,7 +260,7 @@ export function AgentDetailPanel({ agentId, onClose }: AgentDetailPanelProps) {
                   ))
                 ) : (
                   <div className="font-pixel text-[10px] text-[#83769c] text-center py-2">
-                    暂无动态
+                    {t('noActivity')}
                   </div>
                 )}
               </div>
@@ -266,7 +270,7 @@ export function AgentDetailPanel({ agentId, onClose }: AgentDetailPanelProps) {
             {detail.latestMoment && (
               <div className="bg-[#29366f]/50 border border-[#5f574f] p-3 rounded">
                 <div className="font-pixel text-[8px] text-[#c2c3c7] mb-1 flex items-center gap-1">
-                  <span>📝</span> 最新朋友圈
+                  <span>📝</span> {t('latestMoment')}
                   <span className="text-[#83769c] ml-auto">{detail.latestMoment.time}</span>
                 </div>
                 <div className="font-pixel text-[10px] text-[#fff1e8] leading-relaxed">
@@ -278,12 +282,12 @@ export function AgentDetailPanel({ agentId, onClose }: AgentDetailPanelProps) {
             {/* Recent Memories */}
             <div className="bg-[#29366f]/50 border border-[#5f574f] p-3 rounded">
               <div className="font-pixel text-[8px] text-[#c2c3c7] mb-2 flex items-center gap-1">
-                <span>🧠</span> 记忆
+                <span>🧠</span> {t('memory')}
                 <Link
                   href={`/memory?agent=${detail.agent_id}`}
                   className="ml-auto text-[#29adff] hover:text-[#fff1e8]"
                 >
-                  查看全部 →
+                  {tCommon('viewAll')}
                 </Link>
               </div>
               {recentMemories.length > 0 ? (
@@ -303,14 +307,14 @@ export function AgentDetailPanel({ agentId, onClose }: AgentDetailPanelProps) {
                 </div>
               ) : (
                 <div className="font-pixel text-[10px] text-[#83769c] text-center py-2">
-                  暂无记忆
+                  {t('noMemory')}
                 </div>
               )}
             </div>
           </div>
         ) : (
           <div className="p-4 text-center">
-            <span className="font-pixel text-xs text-[#ff004d]">加载失败</span>
+            <span className="font-pixel text-xs text-[#ff004d]">{tCommon('loadFailed')}</span>
           </div>
         )}
       </div>

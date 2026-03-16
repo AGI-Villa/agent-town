@@ -2,17 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from 'next-intl';
 import { Home, MapPin, MessageSquare, Activity } from "lucide-react";
 
 const navItems = [
-  { href: "/", label: "Home", icon: Home, key: "home" },
-  { href: "/town", label: "Town", icon: MapPin, key: "town" },
-  { href: "/feed", label: "Feed", icon: MessageSquare, key: "feed" },
-  { href: "/timeline", label: "Timeline", icon: Activity, key: "timeline" },
+  { href: "/", labelKey: "home", icon: Home, key: "home" },
+  { href: "/town", labelKey: "town", icon: MapPin, key: "town" },
+  { href: "/feed", labelKey: "feed", icon: MessageSquare, key: "feed" },
+  { href: "/timeline", labelKey: "timeline", icon: Activity, key: "timeline" },
 ] as const;
 
 export function MobileNav() {
   const pathname = usePathname();
+  const t = useTranslations('nav');
 
   const getCurrentPage = () => {
     if (pathname === "/") return "home";
@@ -45,7 +47,7 @@ export function MobileNav() {
               aria-current={isActive ? "page" : undefined}
             >
               <Icon className="h-5 w-5" strokeWidth={isActive ? 2.5 : 2} />
-              <span className="font-pixel text-[8px]">{item.label.toUpperCase()}</span>
+              <span className="font-pixel text-[8px]">{t(item.labelKey)}</span>
             </Link>
           );
         })}

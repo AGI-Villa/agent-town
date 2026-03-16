@@ -1,22 +1,28 @@
 "use client";
 
+import { useTranslations } from 'next-intl';
 import { NotificationBell } from "@/components/notifications";
+import { LanguageSwitcher } from "@/components/i18n";
+import { type Locale } from "@/i18n";
 
 interface HeaderProps {
   title: string;
   subtitle: string;
   icon: string;
   currentPage: "home" | "town" | "feed" | "timeline";
+  locale: Locale;
 }
 
 const navItems = [
-  { href: "/", label: "HOME", key: "home" },
-  { href: "/town", label: "TOWN", key: "town" },
-  { href: "/feed", label: "FEED", key: "feed" },
-  { href: "/timeline", label: "TIMELINE", key: "timeline" },
+  { href: "/", labelKey: "home", key: "home" },
+  { href: "/town", labelKey: "town", key: "town" },
+  { href: "/feed", labelKey: "feed", key: "feed" },
+  { href: "/timeline", labelKey: "timeline", key: "timeline" },
 ] as const;
 
-export function Header({ title, subtitle, icon, currentPage }: HeaderProps) {
+export function Header({ title, subtitle, icon, currentPage, locale }: HeaderProps) {
+  const t = useTranslations('nav');
+
   return (
     <header className="border-b-4 border-[#5f574f] bg-[#1d2b53] px-3 py-4 sm:px-8 sm:py-6 safe-area-top">
       <div className="mx-auto max-w-3xl">
@@ -34,7 +40,10 @@ export function Header({ title, subtitle, icon, currentPage }: HeaderProps) {
               </p>
             </div>
           </div>
-          <NotificationBell />
+          <div className="flex items-center gap-2 sm:gap-4">
+            <LanguageSwitcher currentLocale={locale} variant="buttons" />
+            <NotificationBell />
+          </div>
         </div>
         {/* Desktop navigation - hidden on mobile (using bottom nav instead) */}
         <nav className="mt-4 hidden gap-4 md:flex" aria-label="Main navigation">
@@ -49,7 +58,7 @@ export function Header({ title, subtitle, icon, currentPage }: HeaderProps) {
               }
               aria-current={currentPage === item.key ? "page" : undefined}
             >
-              {item.label}
+              {t(item.labelKey)}
             </a>
           ))}
         </nav>
