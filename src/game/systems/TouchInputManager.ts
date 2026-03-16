@@ -8,16 +8,20 @@ export interface TouchInputConfig {
   zoomSensitivity: number;      // Zoom speed multiplier
   doubleTapZoom: boolean;       // Enable double-tap to zoom
   doubleTapDelay: number;       // Max ms between taps for double-tap
+  tapSelectEnabled: boolean;    // Enable tap to select agents
+  longPressDelay: number;       // Ms to trigger long press
 }
 
 const DEFAULT_CONFIG: TouchInputConfig = {
   dragThreshold: 10,
   pinchZoomEnabled: true,
   minZoom: 0.5,
-  maxZoom: 2,
+  maxZoom: 4,
   zoomSensitivity: 0.01,
   doubleTapZoom: true,
   doubleTapDelay: 300,
+  tapSelectEnabled: true,
+  longPressDelay: 500,
 };
 
 export class TouchInputManager {
@@ -33,6 +37,11 @@ export class TouchInputManager {
   private lastTapY: number = 0;
   private initialScrollX: number = 0;
   private initialScrollY: number = 0;
+  private pinchCenterX: number = 0;
+  private pinchCenterY: number = 0;
+  private initialPinchZoom: number = 1;
+  private longPressTimer: ReturnType<typeof setTimeout> | null = null;
+  private pointerDownTime: number = 0;
 
   constructor(scene: Phaser.Scene, config: Partial<TouchInputConfig> = {}) {
     this.scene = scene;
@@ -60,6 +69,13 @@ export class TouchInputManager {
 
   private onPointerDown(pointer: Phaser.Input.Pointer): void {
     const now = Date.now();
+    this.pointerDownTime = now;
+    
+    // Clear any existing long press timer
+    if (this.longPressTimer) {
+      clearTimeout(this.longPressTimer);
+      this.longPressTimer = null;
+    }
     
     // Check for double tap
     if (this.config.doubleTapZoom && !pointer.rightButtonDown()) {
@@ -90,6 +106,12 @@ export class TouchInputManager {
     const pointer1 = input.pointer1;
     const pointer2 = input.pointer2;
 
+    // Clear long press timer on move
+    if (this.longPressTimer) {
+      clearTimeout(this.longPressTimer);
+      this.longPressTimer = null;
+    }
+
     // Check for pinch gesture
     if (this.config.pinchZoomEnabled && pointer1.isDown && pointer2.isDown) {
       this.handlePinch(pointer1, pointer2);
@@ -105,13 +127,30 @@ export class TouchInputManager {
       if (distance > this.config.dragThreshold || this.isDragging) {
         this.isDragging = true;
         const cam = this.scene.cameras.main;
-        cam.scrollX = this.initialScrollX - dx;
-        cam.scrollY = this.initialScrollY - dy;
+        cam.scrollX = this.initialScrollX - dx / cam.zoom;
+        cam.scrollY = this.initialScrollY - dy / cam.zoom;
       }
     }
   }
 
-  private onPointerUp(): void {
+  private onPointerUp(pointer: Phaser.Input.Pointer): void {
+    // Clear long press timer
+    if (this.longPressTimer) {
+      clearTimeout(this.longPressTimer);
+      this.longPressTimer = null;
+    }
+    
+    // Check for tap (short press without drag)
+    const now = Date.now();
+    const pressDuration = now - this.pointerDownTime;
+    const dx = pointer.x - this.dragStartX;
+    const dy = pointer.y - this.dragStartY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    // If it was a quick tap without much movement, it's a tap gesture
+    // The actual tap handling is done by Phaser's built-in pointer events on game objects
+    // This just ensures we don't interfere with tap detection
+    
     this.isDragging = false;
     this.isPinching = false;
     this.lastPinchDistance = 0;
@@ -121,11 +160,20 @@ export class TouchInputManager {
     const dx = pointer2.x - pointer1.x;
     const dy = pointer2.y - pointer1.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    // Calculate pinch center in screen coordinates
+    const centerX = (pointer1.x + pointer2.x) / 2;
+    const centerY = (pointer1.y + pointer2.y) / 2;
 
     if (this.lastPinchDistance > 0) {
       const delta = distance - this.lastPinchDistance;
       const zoomDelta = delta * this.config.zoomSensitivity;
-      this.applyZoom(zoomDelta, (pointer1.x + pointer2.x) / 2, (pointer1.y + pointer2.y) / 2);
+      this.applyZoom(zoomDelta, centerX, centerY);
+    } else {
+      // First frame of pinch - store initial state
+      this.pinchCenterX = centerX;
+      this.pinchCenterY = centerY;
+      this.initialPinchZoom = this.scene.cameras.main.zoom;
     }
 
     this.lastPinchDistance = distance;
@@ -134,14 +182,34 @@ export class TouchInputManager {
 
   private handleDoubleTap(pointer: Phaser.Input.Pointer): void {
     const cam = this.scene.cameras.main;
-    const targetZoom = cam.zoom < 1.5 ? 2 : 1;
+    
+    // Calculate min zoom to fill viewport
+    const mapWidth = (this.scene as any).mapWidth || 1920;
+    const mapHeight = (this.scene as any).mapHeight || 1280;
+    const minZoomX = cam.width / mapWidth;
+    const minZoomY = cam.height / mapHeight;
+    const minZoom = Math.max(minZoomX, minZoomY, this.config.minZoom);
+    
+    // Toggle between zoomed out and zoomed in
+    const targetZoom = cam.zoom < 1.5 ? Math.min(2.5, this.config.maxZoom) : minZoom;
+    
+    // Convert pointer position to world coordinates before zoom
+    const worldX = cam.scrollX + pointer.x / cam.zoom;
+    const worldY = cam.scrollY + pointer.y / cam.zoom;
     
     // Animate zoom
     this.scene.tweens.add({
       targets: cam,
       zoom: targetZoom,
-      duration: 200,
+      duration: 250,
       ease: 'Cubic.easeOut',
+      onUpdate: () => {
+        // Keep the tapped point under the pointer during zoom
+        if (targetZoom > cam.zoom) {
+          cam.scrollX = worldX - pointer.x / cam.zoom;
+          cam.scrollY = worldY - pointer.y / cam.zoom;
+        }
+      },
     });
   }
 
@@ -157,9 +225,17 @@ export class TouchInputManager {
 
   private applyZoom(delta: number, centerX: number, centerY: number): void {
     const cam = this.scene.cameras.main;
+    
+    // Calculate min zoom to fill viewport (no black edges)
+    const mapWidth = (this.scene as any).mapWidth || 1920;
+    const mapHeight = (this.scene as any).mapHeight || 1280;
+    const minZoomX = cam.width / mapWidth;
+    const minZoomY = cam.height / mapHeight;
+    const minZoom = Math.max(minZoomX, minZoomY, this.config.minZoom);
+    
     const newZoom = Phaser.Math.Clamp(
       cam.zoom + delta,
-      this.config.minZoom,
+      minZoom,
       this.config.maxZoom
     );
 
@@ -186,6 +262,10 @@ export class TouchInputManager {
   }
 
   destroy(): void {
+    if (this.longPressTimer) {
+      clearTimeout(this.longPressTimer);
+      this.longPressTimer = null;
+    }
     const input = this.scene.input;
     input.off('pointerdown', this.onPointerDown, this);
     input.off('pointermove', this.onPointerMove, this);

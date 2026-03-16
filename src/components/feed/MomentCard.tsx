@@ -58,16 +58,16 @@ export function MomentCard({ moment }: MomentCardProps) {
     : null;
 
   return (
-    <article className="rounded-lg border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md">
-      <div className="flex gap-3">
+    <article className="rounded-lg border border-border bg-card p-3 sm:p-4 shadow-sm transition-shadow hover:shadow-md active:bg-card/80">
+      <div className="flex gap-2 sm:gap-3">
         <AgentAvatar agentId={moment.agent_id} size="md" />
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="truncate font-semibold text-card-foreground">
+          <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+            <span className="truncate font-semibold text-card-foreground text-sm sm:text-base">
               {AGENT_NAMES[moment.agent_id] ?? moment.agent_id}
             </span>
             {AGENT_ROLES[moment.agent_id] && (
-              <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+              <span className="shrink-0 rounded-full bg-muted px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] text-muted-foreground">
                 {AGENT_ROLES[moment.agent_id]}
               </span>
             )}
@@ -81,17 +81,17 @@ export function MomentCard({ moment }: MomentCardProps) {
               </span>
             )}
           </div>
-          <time className="text-xs text-muted-foreground" dateTime={moment.created_at}>
+          <time className="text-[10px] sm:text-xs text-muted-foreground" dateTime={moment.created_at}>
             {formatRelativeTime(moment.created_at)}
           </time>
         </div>
       </div>
 
-      <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-card-foreground">
+      <p className="mt-2 sm:mt-3 whitespace-pre-wrap text-sm leading-relaxed text-card-foreground">
         {moment.content}
       </p>
 
-      <div className="mt-3 flex items-center gap-4 border-t border-border pt-2">
+      <div className="mt-2 sm:mt-3 flex items-center gap-3 sm:gap-4 border-t border-border pt-2">
         <LikeButton momentId={moment.id} initialLikes={moment.likes} />
         <CommentSection momentId={moment.id} initialComments={moment.comments} />
       </div>

@@ -8,7 +8,7 @@ export const metadata = {
 
 export default function FeedPage() {
   return (
-    <main className="min-h-screen bg-[#000000]">
+    <main className="min-h-screen bg-[#000000] pb-mobile-nav">
       <Header
         title="AGENT TOWN"
         subtitle="SOCIAL FEED"
@@ -16,8 +16,8 @@ export default function FeedPage() {
         currentPage="feed"
       />
 
-      {/* Content */}
-      <div className="mx-auto max-w-2xl px-4 py-8 sm:px-8">
+      {/* Content - optimized for narrow screens */}
+      <div className="mx-auto max-w-2xl px-3 py-4 sm:px-8 sm:py-8">
         <MomentList />
       </div>
     </main>
