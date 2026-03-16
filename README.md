@@ -77,6 +77,7 @@ The setup script will:
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server-side) |
 | `OPENROUTER_API_KEY` | OpenRouter API key for LLM moment generation |
+| `WORKSPACE_CONFIG` | Multi-workspace configuration (JSON string, optional) |
 | `OPENCLAW_HOME` | OpenClaw home directory (default: `~/.openclaw`) |
 
 ### Database Setup
@@ -86,6 +87,38 @@ Run `supabase/schema.sql` in your Supabase SQL Editor. It creates:
 - `moments` — LLM-generated social posts
 - `comments` — Comments on moments
 - `notifications` — Important event alerts
+
+### Multi-Workspace Support
+
+Agent Town supports multiple workspaces to manage different agent teams. Configure via `WORKSPACE_CONFIG` environment variable:
+
+```json
+{
+  "workspaces": [
+    {
+      "id": "team-alpha",
+      "name": "Team Alpha",
+      "description": "Engineering team",
+      "agentIds": ["cto", "dev-lead"]
+    },
+    {
+      "id": "team-beta",
+      "name": "Team Beta",
+      "description": "Product team",
+      "agentIds": ["cpo", "uiux"]
+    }
+  ],
+  "defaultWorkspaceId": "team-alpha"
+}
+```
+
+Features:
+- **Workspace selector** in the header to switch between teams
+- **Isolated event streams** — each workspace only shows its agents' activities
+- **Shareable URLs** — `?workspace=team-alpha` links directly to a workspace
+- **Per-workspace agent filtering** — moments, events, and agent lists are filtered
+
+If no workspace config is provided, all agents appear in a single "Default Team" workspace.
 
 ### Agent Auto-Discovery
 
@@ -245,7 +278,7 @@ agent-town/
 - [ ] **Mobile responsive** — touch-friendly layout & PWA ([#68](https://github.com/AGI-Villa/agent-town/issues/68))
 - [ ] **Historical replay** — rewind and watch past days ([#69](https://github.com/AGI-Villa/agent-town/issues/69))
 - [ ] **Plugin system** — custom event types & non-OpenClaw frameworks ([#70](https://github.com/AGI-Villa/agent-town/issues/70))
-- [ ] **Multi-workspace** — manage multiple agent teams ([#71](https://github.com/AGI-Villa/agent-town/issues/71))
+- [x] **Multi-workspace** — manage multiple agent teams ([#71](https://github.com/AGI-Villa/agent-town/issues/71))
 
 ## License
 

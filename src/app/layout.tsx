@@ -5,6 +5,7 @@ import { getLocale, getMessages } from 'next-intl/server';
 import { ConsoleBanner } from "@/components/ConsoleBanner";
 import { MobileNav } from "@/components/layout";
 import { ServiceWorkerRegistration } from "@/components/pwa";
+import { WorkspaceProvider } from "@/components/workspace";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -64,10 +65,12 @@ export default async function RootLayout({
     <html lang={locale} suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} ${pressStart2P.variable} antialiased`} suppressHydrationWarning>
         <NextIntlClientProvider messages={messages}>
-          <ConsoleBanner />
-          <ServiceWorkerRegistration />
-          {children}
-          <MobileNav />
+          <WorkspaceProvider>
+            <ConsoleBanner />
+            <ServiceWorkerRegistration />
+            {children}
+            <MobileNav />
+          </WorkspaceProvider>
         </NextIntlClientProvider>
       </body>
     </html>
