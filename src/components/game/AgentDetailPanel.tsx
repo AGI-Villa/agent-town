@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 
 interface AgentDetail {
   agent_id: string;
@@ -11,6 +12,11 @@ interface AgentDetail {
   todayStats: { total: number; byType: Record<string, number> };
   recentEvents: Array<{ type: string; summary: string; time: string }>;
   latestMoment: { content: string; time: string } | null;
+}
+
+interface TokenStats {
+  total_tokens: number;
+  total_cost: number;
 }
 
 interface AgentDetailPanelProps {
@@ -36,6 +42,7 @@ function getStatusEmoji(status: string): string {
 
 export function AgentDetailPanel({ agentId, onClose }: AgentDetailPanelProps) {
   const [detail, setDetail] = useState<AgentDetail | null>(null);
+  const [tokenStats, setTokenStats] = useState<TokenStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
 
@@ -46,13 +53,28 @@ export function AgentDetailPanel({ agentId, onClose }: AgentDetailPanelProps) {
     }
 
     setLoading(true);
-    fetch(`/api/agents/${agentId}/detail`)
+    
+    // Fetch agent detail
+    const detailPromise = fetch(`/api/agents/${agentId}/detail`)
+      .then((res) => res.json())
+      .then((data) => setDetail(data))
+      .catch((err) => console.error('Failed to fetch agent detail:', err));
+
+    // Fetch token stats for this agent
+    const tokenPromise = fetch(`/api/analytics/tokens?agent_id=${agentId}&period=day`)
       .then((res) => res.json())
       .then((data) => {
-        setDetail(data);
-        setIsVisible(true);
+        if (data.summary) {
+          setTokenStats({
+            total_tokens: data.summary.total_tokens,
+            total_cost: data.summary.total_cost,
+          });
+        }
       })
-      .catch((err) => console.error('Failed to fetch agent detail:', err))
+      .catch((err) => console.error('Failed to fetch token stats:', err));
+
+    Promise.all([detailPromise, tokenPromise])
+      .then(() => setIsVisible(true))
       .finally(() => setLoading(false));
   }, [agentId]);
 
@@ -151,6 +173,37 @@ export function AgentDetailPanel({ agentId, onClose }: AgentDetailPanelProps) {
                 </div>
               </div>
             </div>
+
+            {/* Token Usage */}
+            {tokenStats && tokenStats.total_tokens > 0 && (
+              <Link
+                href={`/analytics?agent_id=${detail.agent_id}`}
+                className="block bg-[#000]/30 border border-[#5f574f] p-3 rounded hover:border-[#29adff] transition-colors"
+              >
+                <div className="font-pixel text-[8px] text-[#c2c3c7] mb-2 flex items-center gap-1">
+                  <span>🔥</span> 今日消耗
+                  <span className="ml-auto text-[#83769c]">点击查看详情 →</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div>
+                    <div className="font-pixel text-lg text-[#ffa300]">
+                      {tokenStats.total_tokens >= 1000000
+                        ? `${(tokenStats.total_tokens / 1000000).toFixed(1)}M`
+                        : tokenStats.total_tokens >= 1000
+                        ? `${(tokenStats.total_tokens / 1000).toFixed(0)}K`
+                        : tokenStats.total_tokens}
+                    </div>
+                    <div className="font-pixel text-[8px] text-[#83769c]">Tokens</div>
+                  </div>
+                  <div>
+                    <div className="font-pixel text-lg text-[#00e436]">
+                      ${tokenStats.total_cost.toFixed(4)}
+                    </div>
+                    <div className="font-pixel text-[8px] text-[#83769c]">预估成本</div>
+                  </div>
+                </div>
+              </Link>
+            )}
 
             {/* Recent Events */}
             <div>
