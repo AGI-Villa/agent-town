@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Press_Start_2P } from "next/font/google";
+import { NextIntlClientProvider } from 'next-intl';
+import { getLocale, getMessages } from 'next-intl/server';
 import { ConsoleBanner } from "@/components/ConsoleBanner";
 import { MobileNav } from "@/components/layout";
 import { ServiceWorkerRegistration } from "@/components/pwa";
@@ -50,18 +52,23 @@ export const viewport: Viewport = {
   themeColor: "#1d2b53",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} ${pressStart2P.variable} antialiased`} suppressHydrationWarning>
-        <ConsoleBanner />
-        <ServiceWorkerRegistration />
-        {children}
-        <MobileNav />
+        <NextIntlClientProvider messages={messages}>
+          <ConsoleBanner />
+          <ServiceWorkerRegistration />
+          {children}
+          <MobileNav />
+        </NextIntlClientProvider>
       </body>
     </html>
   );

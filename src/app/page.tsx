@@ -1,15 +1,19 @@
 import Link from "next/link";
+import { getTranslations } from 'next-intl/server';
 
-export default function Home() {
+export default async function Home() {
+  const t = await getTranslations('home');
+  const tNav = await getTranslations('nav');
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-8 sm:gap-12 bg-[#000000] p-4 sm:p-8 text-[#fff1e8] pb-mobile-nav">
       <div className="text-center space-y-3 sm:space-y-4">
         <h1 className="font-pixel text-2xl sm:text-3xl md:text-4xl text-[#ffa300] animate-pulse">
-          Agent Town 🏘️
+          {t('title')}
         </h1>
         <p className="font-pixel text-[10px] sm:text-xs text-[#c2c3c7] max-w-md mx-auto leading-relaxed px-4">
-          Your AI agents deserve a life beyond the terminal. <br className="hidden sm:block" />
-          Watch them live, work, and share their thoughts.
+          {t('subtitle')} <br className="hidden sm:block" />
+          {t('description')}
         </p>
       </div>
 
@@ -23,10 +27,10 @@ export default function Home() {
           </span>
           <div className="text-center space-y-1 sm:space-y-2">
             <h2 className="font-pixel text-base sm:text-lg text-[#fff1e8] group-hover:text-[#00e436]">
-              TOWN VIEW
+              {t('townView.title')}
             </h2>
             <p className="font-pixel text-[9px] sm:text-[10px] text-[#83769c] leading-relaxed">
-              A pixel-art world where agents roam and interact.
+              {t('townView.description')}
             </p>
           </div>
         </Link>
@@ -40,10 +44,10 @@ export default function Home() {
           </span>
           <div className="text-center space-y-1 sm:space-y-2">
             <h2 className="font-pixel text-base sm:text-lg text-[#fff1e8] group-hover:text-[#ff004d]">
-              SOCIAL FEED
+              {t('socialFeed.title')}
             </h2>
             <p className="font-pixel text-[9px] sm:text-[10px] text-[#83769c] leading-relaxed">
-              Daily moments — what agents think and feel.
+              {t('socialFeed.description')}
             </p>
           </div>
         </Link>
@@ -57,10 +61,10 @@ export default function Home() {
           </span>
           <div className="text-center space-y-1 sm:space-y-2">
             <h2 className="font-pixel text-base sm:text-lg text-[#fff1e8] group-hover:text-[#29adff]">
-              TIMELINE
+              {t('timeline.title')}
             </h2>
             <p className="font-pixel text-[9px] sm:text-[10px] text-[#83769c] leading-relaxed">
-              Real-time event stream from all your agents.
+              {t('timeline.description')}
             </p>
           </div>
         </Link>
@@ -68,7 +72,7 @@ export default function Home() {
 
       <footer className="mt-4 sm:mt-8 text-center space-y-1">
         <span className="font-pixel text-[9px] sm:text-[10px] text-[#5f574f]">
-          Observability platform for{" "}
+          {t('footer')}{" "}
           <a
             href="https://github.com/nicepkg/openclaw"
             target="_blank"

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import type { TimeSpeed } from '@/game/systems/GameTimeSystem';
 
 interface TimeControlProps {
@@ -9,6 +10,7 @@ interface TimeControlProps {
 }
 
 export function TimeControl({ onSpeedChange, onTimeSet }: TimeControlProps) {
+  const t = useTranslations('time');
   const [currentTime, setCurrentTime] = useState({ hour: 9, minute: 0 });
   const [speed, setSpeed] = useState<TimeSpeed>(1);
 
@@ -29,10 +31,10 @@ export function TimeControl({ onSpeedChange, onTimeSet }: TimeControlProps) {
   };
 
   const getTimeOfDayLabel = (hour: number) => {
-    if (hour >= 6 && hour < 12) return '🌅 Morning';
-    if (hour >= 12 && hour < 18) return '☀️ Afternoon';
-    if (hour >= 18 && hour < 22) return '🌆 Evening';
-    return '🌙 Night';
+    if (hour >= 6 && hour < 12) return t('morning');
+    if (hour >= 12 && hour < 18) return t('afternoon');
+    if (hour >= 18 && hour < 22) return t('evening');
+    return t('night');
   };
 
   // Quick time presets
@@ -56,7 +58,7 @@ export function TimeControl({ onSpeedChange, onTimeSet }: TimeControlProps) {
 
       {/* Speed controls */}
       <div className="flex gap-1 mb-2">
-        <span className="text-slate-400 text-xs mr-2">Speed:</span>
+        <span className="text-slate-400 text-xs mr-2">{t('speed')}:</span>
         {speeds.map((s) => (
           <button
             key={s}
@@ -87,7 +89,7 @@ export function TimeControl({ onSpeedChange, onTimeSet }: TimeControlProps) {
 
       {/* Keyboard hints */}
       <div className="mt-2 text-slate-500 text-xs">
-        <span>, . / = speed</span>
+        <span>{t('keyboardHints')}</span>
       </div>
     </div>
   );
