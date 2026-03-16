@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl';
 import { NotificationBell } from "@/components/notifications";
 import { LanguageSwitcher } from "@/components/i18n";
+import { GatewayStatusIndicator } from "@/components/gateway";
 import { type Locale } from "@/i18n";
 
 interface HeaderProps {
@@ -41,6 +42,7 @@ export function Header({ title, subtitle, icon, currentPage, locale }: HeaderPro
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
+            <GatewayStatusIndicator />
             <LanguageSwitcher currentLocale={locale} variant="buttons" />
             <NotificationBell />
           </div>
