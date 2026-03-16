@@ -84,8 +84,16 @@
   },
   "settings": {
     "title": "Settings",
+    "subtitle": "System Configuration",
     "language": "Language",
-    "languageDescription": "Choose your preferred language"
+    "languageDescription": "Choose your preferred language",
+    "gateway": {
+      "title": "OpenClaw Gateway"
+    },
+    "config": {
+      "title": "Configuration",
+      "comingSoon": "Configuration management coming soon..."
+    }
   },
   "replay": {
     "title": "AGENT TOWN",

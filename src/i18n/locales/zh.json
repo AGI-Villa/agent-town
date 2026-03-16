@@ -84,8 +84,16 @@
   },
   "settings": {
     "title": "设置",
+    "subtitle": "系统配置",
     "language": "语言",
-    "languageDescription": "选择你偏好的语言"
+    "languageDescription": "选择你偏好的语言",
+    "gateway": {
+      "title": "OpenClaw Gateway"
+    },
+    "config": {
+      "title": "配置管理",
+      "comingSoon": "配置管理功能即将推出..."
+    }
   },
   "replay": {
     "title": "AGENT TOWN",
