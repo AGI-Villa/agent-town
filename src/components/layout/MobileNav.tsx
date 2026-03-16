@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from 'next-intl';
-import { Home, MapPin, MessageSquare, Activity } from "lucide-react";
+import { Home, MapPin, MessageSquare, Activity, History } from "lucide-react";
 
 const navItems = [
   { href: "/", labelKey: "home", icon: Home, key: "home" },
   { href: "/town", labelKey: "town", icon: MapPin, key: "town" },
   { href: "/feed", labelKey: "feed", icon: MessageSquare, key: "feed" },
   { href: "/timeline", labelKey: "timeline", icon: Activity, key: "timeline" },
+  { href: "/replay", labelKey: "replay", icon: History, key: "replay" },
 ] as const;
 
 export function MobileNav() {
@@ -21,6 +22,7 @@ export function MobileNav() {
     if (pathname.startsWith("/town")) return "town";
     if (pathname.startsWith("/feed")) return "feed";
     if (pathname.startsWith("/timeline")) return "timeline";
+    if (pathname.startsWith("/replay")) return "replay";
     return "home";
   };
 
@@ -39,7 +41,7 @@ export function MobileNav() {
             <Link
               key={item.key}
               href={item.href}
-              className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors touch-manipulation ${
+              className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors touch-manipulation ${
                 isActive
                   ? "text-[#ffa300] bg-[#ffa300]/10"
                   : "text-[#83769c] hover:text-[#fff1e8] active:bg-white/5"
