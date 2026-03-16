@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getWorkspaceAgentIds } from "@/lib/workspace";
 import type { Database } from "@/lib/database.types";
 
 type Moment = Database["public"]["Tables"]["moments"]["Row"];
@@ -10,14 +11,25 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "20", 10), 1), 100);
     const offset = Math.max(parseInt(searchParams.get("offset") || "0", 10), 0);
+    const workspaceId = searchParams.get("workspace") ?? "default";
+
+    // Get workspace agent filter
+    const workspaceAgentIds = getWorkspaceAgentIds(workspaceId);
 
     const supabase = await createClient();
 
-    const { data: momentsRaw, error: momentsError } = await supabase
+    let query = supabase
       .from("moments")
       .select("*")
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
+
+    // Filter by workspace agents if workspace has specific agents
+    if (workspaceAgentIds && workspaceAgentIds.length > 0) {
+      query = query.in("agent_id", workspaceAgentIds);
+    }
+
+    const { data: momentsRaw, error: momentsError } = await query;
 
     if (momentsError) {
       return NextResponse.json({ error: "Failed to fetch moments" }, { status: 500 });
