@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import type { MemoryItem } from '@/lib/memory/parser';
 
 interface AgentDetail {
   agent_id: string;
@@ -17,6 +18,10 @@ interface AgentDetail {
 interface TokenStats {
   total_tokens: number;
   total_cost: number;
+}
+
+interface MemoryData {
+  sections: Array<{ title: string; items: MemoryItem[] }>;
 }
 
 interface AgentDetailPanelProps {
@@ -43,6 +48,7 @@ function getStatusEmoji(status: string): string {
 export function AgentDetailPanel({ agentId, onClose }: AgentDetailPanelProps) {
   const [detail, setDetail] = useState<AgentDetail | null>(null);
   const [tokenStats, setTokenStats] = useState<TokenStats | null>(null);
+  const [recentMemories, setRecentMemories] = useState<MemoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
 
@@ -73,7 +79,31 @@ export function AgentDetailPanel({ agentId, onClose }: AgentDetailPanelProps) {
       })
       .catch((err) => console.error('Failed to fetch token stats:', err));
 
-    Promise.all([detailPromise, tokenPromise])
+    // Fetch recent memories
+    const memoryPromise = fetch(`/api/agents/${agentId}/memory`)
+      .then((res) => res.json())
+      .then((data: { memory?: MemoryData }) => {
+        if (data.memory?.sections) {
+          // Get recent items (up to 5)
+          const allItems: MemoryItem[] = [];
+          for (const section of data.memory.sections) {
+            for (const item of section.items) {
+              allItems.push(item);
+            }
+          }
+          // Sort by date if available
+          allItems.sort((a, b) => {
+            if (a.date && b.date) return b.date.localeCompare(a.date);
+            if (a.date) return -1;
+            if (b.date) return 1;
+            return 0;
+          });
+          setRecentMemories(allItems.slice(0, 5));
+        }
+      })
+      .catch((err) => console.error('Failed to fetch memories:', err));
+
+    Promise.all([detailPromise, tokenPromise, memoryPromise])
       .then(() => setIsVisible(true))
       .finally(() => setLoading(false));
   }, [agentId]);
@@ -244,6 +274,39 @@ export function AgentDetailPanel({ agentId, onClose }: AgentDetailPanelProps) {
                 </div>
               </div>
             )}
+
+            {/* Recent Memories */}
+            <div className="bg-[#29366f]/50 border border-[#5f574f] p-3 rounded">
+              <div className="font-pixel text-[8px] text-[#c2c3c7] mb-2 flex items-center gap-1">
+                <span>🧠</span> 记忆
+                <Link
+                  href={`/memory?agent=${detail.agent_id}`}
+                  className="ml-auto text-[#29adff] hover:text-[#fff1e8]"
+                >
+                  查看全部 →
+                </Link>
+              </div>
+              {recentMemories.length > 0 ? (
+                <div className="space-y-1">
+                  {recentMemories.map((item, i) => (
+                    <div
+                      key={i}
+                      className="font-pixel text-[10px] text-[#c2c3c7] leading-relaxed flex items-start gap-1"
+                    >
+                      <span className="text-[#83769c]">•</span>
+                      <span className="flex-1 break-words">{item.content}</span>
+                      {item.date && (
+                        <span className="text-[#83769c] text-[8px] shrink-0">{item.date}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="font-pixel text-[10px] text-[#83769c] text-center py-2">
+                  暂无记忆
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           <div className="p-4 text-center">
