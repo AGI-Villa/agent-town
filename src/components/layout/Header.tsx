@@ -18,25 +18,26 @@ const navItems = [
 
 export function Header({ title, subtitle, icon, currentPage }: HeaderProps) {
   return (
-    <header className="border-b-4 border-[#5f574f] bg-[#1d2b53] px-4 py-6 sm:px-8">
+    <header className="border-b-4 border-[#5f574f] bg-[#1d2b53] px-3 py-4 sm:px-8 sm:py-6 safe-area-top">
       <div className="mx-auto max-w-3xl">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl" role="img" aria-label={title}>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <span className="text-xl sm:text-2xl" role="img" aria-label={title}>
               {icon}
             </span>
             <div>
-              <h1 className="font-pixel text-lg text-[#fff1e8] sm:text-xl">
+              <h1 className="font-pixel text-base text-[#fff1e8] sm:text-xl">
                 {title}
               </h1>
-              <p className="font-pixel text-[10px] text-[#c2c3c7]">
+              <p className="font-pixel text-[9px] sm:text-[10px] text-[#c2c3c7]">
                 {subtitle}
               </p>
             </div>
           </div>
           <NotificationBell />
         </div>
-        <nav className="mt-4 flex gap-4" aria-label="Main navigation">
+        {/* Desktop navigation - hidden on mobile (using bottom nav instead) */}
+        <nav className="mt-4 hidden gap-4 md:flex" aria-label="Main navigation">
           {navItems.map((item) => (
             <a
               key={item.key}
