@@ -5,6 +5,7 @@ import { resolve } from "path";
 import type { Database } from "@/lib/database.types";
 import type { AgentStatus, TaskInfo } from "@/lib/types";
 import { getAgentsDir } from "@/lib/openclaw-discovery";
+import { getWorkspaceAgentIds } from "@/lib/workspace";
 
 type EventRow = Database["public"]["Tables"]["events"]["Row"];
 
@@ -52,8 +53,14 @@ function parseTaskFromEvent(eventType: string, payload: Record<string, unknown> 
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const workspaceId = searchParams.get("workspace") ?? "default";
+
+    // Get workspace agent filter
+    const workspaceAgentIds = getWorkspaceAgentIds(workspaceId);
+
     const supabase = await createClient();
     const now = new Date();
     const fiveMinAgo  = new Date(now.getTime() -  5 * 60 * 1000).toISOString();
@@ -121,6 +128,11 @@ export async function GET() {
 
     for (const [agentId, info] of agentMap) {
       if (SKIP_AGENTS.has(agentId)) continue;
+
+      // Filter by workspace if specific agents are defined
+      if (workspaceAgentIds && workspaceAgentIds.length > 0 && !workspaceAgentIds.includes(agentId)) {
+        continue;
+      }
 
       let status: "online" | "idle" | "offline";
       if (info.lastAt && info.lastAt >= fiveMinAgo) {

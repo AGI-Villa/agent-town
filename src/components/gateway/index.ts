@@ -1,2 +1,1 @@
-export { GatewayControlPanel } from "./GatewayControlPanel";
-export { GatewayStatusIndicator } from "./GatewayStatusIndicator";
+export { GatewayStatusIndicator, GatewayControlPanel } from "./GatewayPanel";

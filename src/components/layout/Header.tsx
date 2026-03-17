@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl';
 import { NotificationBell } from "@/components/notifications";
 import { LanguageSwitcher } from "@/components/i18n";
+import { WorkspaceSelector } from "@/components/workspace";
 import { GatewayStatusIndicator } from "@/components/gateway";
 import { type Locale } from "@/i18n";
 
@@ -10,7 +11,7 @@ interface HeaderProps {
   title: string;
   subtitle: string;
   icon: string;
-  currentPage: "home" | "town" | "feed" | "timeline";
+  currentPage: "home" | "town" | "feed" | "timeline" | "replay";
   locale: Locale;
 }
 
@@ -19,6 +20,7 @@ const navItems = [
   { href: "/town", labelKey: "town", key: "town" },
   { href: "/feed", labelKey: "feed", key: "feed" },
   { href: "/timeline", labelKey: "timeline", key: "timeline" },
+  { href: "/replay", labelKey: "replay", key: "replay" },
 ] as const;
 
 export function Header({ title, subtitle, icon, currentPage, locale }: HeaderProps) {
@@ -43,6 +45,7 @@ export function Header({ title, subtitle, icon, currentPage, locale }: HeaderPro
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
             <GatewayStatusIndicator />
+            <WorkspaceSelector />
             <LanguageSwitcher currentLocale={locale} variant="buttons" />
             <NotificationBell />
           </div>

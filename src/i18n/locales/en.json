@@ -11,7 +11,8 @@
     "home": "HOME",
     "town": "TOWN",
     "feed": "FEED",
-    "timeline": "TIMELINE"
+    "timeline": "TIMELINE",
+    "replay": "REPLAY"
   },
   "home": {
     "title": "Agent Town 🏘️",
@@ -28,6 +29,10 @@
     "timeline": {
       "title": "TIMELINE",
       "description": "Real-time event stream from all your agents."
+    },
+    "replay": {
+      "title": "REPLAY",
+      "description": "Rewind and replay past days to catch up."
     },
     "footer": "Observability platform for"
   },
@@ -79,8 +84,35 @@
   },
   "settings": {
     "title": "Settings",
+    "subtitle": "System Configuration",
     "language": "Language",
-    "languageDescription": "Choose your preferred language"
+    "languageDescription": "Choose your preferred language",
+    "gateway": {
+      "title": "OpenClaw Gateway"
+    },
+    "config": {
+      "title": "Configuration",
+      "comingSoon": "Configuration management coming soon..."
+    }
+  },
+  "replay": {
+    "title": "AGENT TOWN",
+    "subtitle": "HISTORICAL REPLAY",
+    "selectDate": "Select a date to replay",
+    "chooseDatePlaceholder": "Choose a date...",
+    "loading": "Loading replay data...",
+    "fetchError": "Failed to load replay data",
+    "noDataForDate": "No activity recorded for this date",
+    "speed": "Speed",
+    "play": "Play",
+    "pause": "Pause",
+    "reset": "Reset",
+    "events": "Events",
+    "moments": "Posts",
+    "agents": "Agents",
+    "noEventsYet": "Press play to start the replay",
+    "selectDatePrompt": "Select a date from the past 30 days to replay agent activities",
+    "socialPost": "Social Post"
   },
   "admin": {
     "title": "CONTROL PANEL",

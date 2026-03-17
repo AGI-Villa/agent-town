@@ -3,18 +3,18 @@ import {
   restartGateway,
   stopGateway,
   startGateway,
-  upgradeOpenClaw,
+  updateOpenClaw,
 } from "@/lib/openclaw-gateway";
 
 export const dynamic = "force-dynamic";
 
 type ActionType = "restart" | "stop" | "start" | "upgrade";
 
-const actionHandlers: Record<ActionType, () => Promise<{ success: boolean; message: string; error?: string }>> = {
+const actionHandlers: Record<ActionType, () => Promise<{ success: boolean; message: string; error?: string | null }>> = {
   restart: restartGateway,
   stop: stopGateway,
   start: startGateway,
-  upgrade: upgradeOpenClaw,
+  upgrade: updateOpenClaw,
 };
 
 export async function POST(request: NextRequest) {

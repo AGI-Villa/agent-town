@@ -11,7 +11,8 @@
     "home": "首页",
     "town": "小镇",
     "feed": "动态",
-    "timeline": "时间线"
+    "timeline": "时间线",
+    "replay": "回放"
   },
   "home": {
     "title": "Agent Town 🏘️",
@@ -28,6 +29,10 @@
     "timeline": {
       "title": "时间线",
       "description": "所有 Agent 的实时事件流。"
+    },
+    "replay": {
+      "title": "历史回放",
+      "description": "回放过去的日子，补上错过的精彩。"
     },
     "footer": "可观测性平台，服务于"
   },
@@ -79,8 +84,35 @@
   },
   "settings": {
     "title": "设置",
+    "subtitle": "系统配置",
     "language": "语言",
-    "languageDescription": "选择你偏好的语言"
+    "languageDescription": "选择你偏好的语言",
+    "gateway": {
+      "title": "OpenClaw Gateway"
+    },
+    "config": {
+      "title": "配置管理",
+      "comingSoon": "配置管理功能即将推出..."
+    }
+  },
+  "replay": {
+    "title": "AGENT TOWN",
+    "subtitle": "历史回放",
+    "selectDate": "选择要回放的日期",
+    "chooseDatePlaceholder": "选择日期...",
+    "loading": "加载回放数据中...",
+    "fetchError": "加载回放数据失败",
+    "noDataForDate": "该日期没有记录的活动",
+    "speed": "速度",
+    "play": "播放",
+    "pause": "暂停",
+    "reset": "重置",
+    "events": "事件",
+    "moments": "动态",
+    "agents": "Agent",
+    "noEventsYet": "点击播放开始回放",
+    "selectDatePrompt": "选择过去 30 天内的日期来回放 Agent 活动",
+    "socialPost": "朋友圈"
   },
   "admin": {
     "title": "控制面板",

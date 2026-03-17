@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 import { getAgentName, getAgentRole } from "@/lib/agents";
+import { getWorkspaceAgentIds } from "@/lib/workspace";
 
 // Skip low-value agents
 const SKIP_AGENTS = new Set(["test-agent", "agent-001", "sync-agent", "main"]);
@@ -133,9 +134,13 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const agentId = searchParams.get("agent_id");
+    const workspaceId = searchParams.get("workspace") ?? "default";
     const dateFilter = searchParams.get("date"); // today, yesterday, week, or ISO date
     const offset = parseInt(searchParams.get("offset") || "0", 10);
     const limit = Math.min(parseInt(searchParams.get("limit") || "20", 10), 50);
+
+    // Get workspace agent filter
+    const workspaceAgentIds = getWorkspaceAgentIds(workspaceId);
 
     const supabase = await createClient();
     const now = new Date();
@@ -167,6 +172,9 @@ export async function GET(request: Request) {
 
     if (agentId) {
       query = query.eq("agent_id", agentId);
+    } else if (workspaceAgentIds && workspaceAgentIds.length > 0) {
+      // Filter by workspace agents if workspace has specific agents
+      query = query.in("agent_id", workspaceAgentIds);
     }
 
     if (startDate) {
@@ -197,6 +205,11 @@ export async function GET(request: Request) {
     for (const ev of events || []) {
       // Skip low-value agents
       if (SKIP_AGENTS.has(ev.agent_id)) continue;
+
+      // Filter by workspace if specific agents are defined
+      if (workspaceAgentIds && workspaceAgentIds.length > 0 && !workspaceAgentIds.includes(ev.agent_id)) {
+        continue;
+      }
 
       const summary = extractEventSummary(ev.event_type, ev.payload as MessagePayload | null);
       
@@ -229,6 +242,13 @@ export async function GET(request: Request) {
 
     const uniqueAgents = [...new Set((agentList || []).map((e) => e.agent_id))]
       .filter((id) => !SKIP_AGENTS.has(id))
+      .filter((id) => {
+        // Filter by workspace if specific agents are defined
+        if (workspaceAgentIds && workspaceAgentIds.length > 0) {
+          return workspaceAgentIds.includes(id);
+        }
+        return true;
+      })
       .map((id) => ({
         id,
         name: getAgentName(id),
@@ -238,6 +258,7 @@ export async function GET(request: Request) {
       events: processedEvents,
       agents: uniqueAgents,
       hasMore: (events?.length || 0) >= limit,
+      workspace: workspaceId,
     });
   } catch (err) {
     console.error("[api/events] Error:", err);

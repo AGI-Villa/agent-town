@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRecentLogs, getErrorLogs } from "@/lib/openclaw-gateway";
+import { getRecentLogs } from "@/lib/openclaw-gateway";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get("type") || "recent";
     const lines = parseInt(searchParams.get("lines") || "50", 10);
 
-    const logs = type === "errors" 
-      ? await getErrorLogs(Math.min(lines, 100))
-      : await getRecentLogs(Math.min(lines, 200));
+    const result = await getRecentLogs(Math.min(lines, 200));
 
-    return NextResponse.json({ logs });
+    if (result.error) {
+      return NextResponse.json({ logs: [], error: result.error }, { status: 500 });
+    }
+
+    return NextResponse.json({ logs: result.logs.split("\n").filter(Boolean) });
   } catch (error) {
     console.error("[gateway/logs] Error:", error);
     return NextResponse.json(
